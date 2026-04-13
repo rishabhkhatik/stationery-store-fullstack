@@ -1,0 +1,12 @@
+# Ignore backend modules
+stationery-backend/node_modules/
+stationery-backend/.env
+
+# Ignore frontend modules
+stationery-store/node_modules/
+stationery-store/dist/
+stationery-store/.env
+
+# General ignores
+.DS_Store
+Thumbs.db
