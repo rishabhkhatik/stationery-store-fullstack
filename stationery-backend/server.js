@@ -21,7 +21,7 @@ const ProductSchema = new mongoose.Schema({
     category: String, 
     price: Number, 
     originalPrice: Number,
-    discount: Number, // Percent mein
+    discount: String, // Percent mein
     image: String, 
     inStock: { type: Boolean, default: true },
     trending: { type: Boolean, default: false },
