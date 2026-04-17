@@ -1,32 +1,18 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { PRODUCTS, CATEGORIES, BANNERS } from './data/products'
+import { api } from './utils/api'
 
 // ── Auth Store ──────────────────────────────────────────────
+// Only admin is seeded — registration removed (Bug #1)
 export const useAuthStore = create(
   persist(
     (set, get) => ({
       user: null,
-      users: [],
+      users: [],        // kept for legacy compat — no new customers registered
       isLoggedIn: false,
 
-      register: (data) => {
-        const users = get().users
-        const exists = users.find(u => u.email === data.email)
-        if (exists) return { success: false, message: 'Email already registered' }
-        const newUser = { ...data, id: Date.now(), createdAt: new Date().toISOString(), role: 'customer' }
-        set({ users: [...users, newUser], user: newUser, isLoggedIn: true })
-        return { success: true }
-      },
-
       login: (email, password) => {
-        const users = get().users
-        const found = users.find(u => u.email === email && u.password === password)
-        if (found) {
-          if (found.blocked) return { success: false, message: 'Your account has been blocked.' }
-          set({ user: found, isLoggedIn: true })
-          return { success: true }
-        }
         const storedPw = localStorage.getItem('admin-pw') || 'admin123'
         if (email === 'admin@store.com' && password === storedPw) {
           const adminUser = { id: 'admin', name: 'Admin', email, role: 'admin', password }
@@ -40,11 +26,11 @@ export const useAuthStore = create(
 
       updateUser: (data) => {
         const user = get().user
-        const users = get().users.map(u => u.id === (data.id || user?.id) ? { ...u, ...data } : u)
-        const updatedSelf = !data.id || data.id === user?.id
-        set({ users, ...(updatedSelf ? { user: { ...user, ...data } } : {}) })
         if (data.role === 'admin' && data.password) {
           localStorage.setItem('admin-pw', data.password)
+        }
+        if (!data.id || data.id === user?.id) {
+          set({ user: { ...user, ...data } })
         }
       },
     }),
@@ -107,6 +93,8 @@ export const useCartStore = create(
 )
 
 // ── Admin Store ─────────────────────────────────────────────
+// Bug #3 Fix: All mutating actions also call the backend API so changes
+// are stored in MongoDB and visible on ALL browsers/devices.
 export const useAdminStore = create(
   persist(
     (set, get) => ({
@@ -139,6 +127,7 @@ export const useAdminStore = create(
         showAdminSection: true,
         bannerButtonText: 'Shop Now',
         teamMembers: [],
+        paymentQrCode: null,   // Bug #8 — QR code for order popup
         termsContent: 'By using our website, you agree to these terms and conditions. All products are subject to availability.',
         privacyContent: 'We collect your name, email, phone and address only to process your orders. We do not share your data with third parties.',
         refundContent: 'Returns accepted within 7 days of delivery for damaged or incorrect items. Refunds processed within 5-7 business days.',
@@ -151,9 +140,27 @@ export const useAdminStore = create(
         ],
       },
 
-      updateSiteConfig: (data) => set(s => ({ siteConfig: { ...s.siteConfig, ...data } })),
+      // Fetch all data from backend (call on app startup if API configured)
+      syncFromBackend: async () => {
+        const [products, orders, config] = await Promise.all([
+          api.getProducts(),
+          api.getOrders(),
+          api.getConfig(),
+        ])
+        const update = {}
+        if (products?.length) update.products = products
+        if (orders?.length) update.orders = orders
+        if (config && Object.keys(config).length) update.siteConfig = { ...get().siteConfig, ...config }
+        if (Object.keys(update).length) set(update)
+      },
 
-      addProduct: (product) => {
+      updateSiteConfig: async (data) => {
+        set(s => ({ siteConfig: { ...s.siteConfig, ...data } }))
+        // Persist to backend so all browsers see the change (Bug #3)
+        await api.saveConfig(data)
+      },
+
+      addProduct: async (product) => {
         const p = {
           ...product,
           id: 'P-' + Date.now(),
@@ -161,33 +168,39 @@ export const useAdminStore = create(
           images: product.image ? [product.image] : [],
         }
         set(s => ({ products: [p, ...s.products] }))
+        await api.addProduct(p)   // sync to backend (Bug #3)
       },
 
-      updateProduct: (id, data) => set(s => ({
-        products: s.products.map(p => p.id === id ? { ...p, ...data } : p)
-      })),
+      updateProduct: async (id, data) => {
+        set(s => ({ products: s.products.map(p => p.id === id ? { ...p, ...data } : p) }))
+        await api.updateProduct(id, data)  // sync to backend (Bug #3)
+      },
 
-      deleteProduct: (id) => set(s => ({ products: s.products.filter(p => p.id !== id) })),
+      deleteProduct: async (id) => {
+        set(s => ({ products: s.products.filter(p => p.id !== id) }))
+        await api.deleteProduct(id)   // sync to backend (Bug #3)
+      },
 
       addCategory: (cat) => {
         const slug = cat.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
         set(s => ({ categories: [{ ...cat, id: slug, slug }, ...s.categories] }))
       },
-
-      updateCategory: (id, data) => set(s => ({
-        categories: s.categories.map(c => c.id === id ? { ...c, ...data } : c)
-      })),
-
+      updateCategory: (id, data) => set(s => ({ categories: s.categories.map(c => c.id === id ? { ...c, ...data } : c) })),
       deleteCategory: (id) => set(s => ({ categories: s.categories.filter(c => c.id !== id) })),
 
       addBanner: (banner) => set(s => ({ banners: [...s.banners, { ...banner, id: Date.now() }] })),
       updateBanner: (id, data) => set(s => ({ banners: s.banners.map(b => b.id === id ? { ...b, ...data } : b) })),
       deleteBanner: (id) => set(s => ({ banners: s.banners.filter(b => b.id !== id) })),
 
-      addOrder: (order) => set(s => ({ orders: [order, ...s.orders] })),
-      updateOrderStatus: (id, status) => set(s => ({
-        orders: s.orders.map(o => o.id === id ? { ...o, status } : o)
-      })),
+      addOrder: async (order) => {
+        set(s => ({ orders: [order, ...s.orders] }))
+        await api.addOrder(order)   // sync to backend so admin sees it (Bug #3)
+      },
+
+      updateOrderStatus: async (id, status) => {
+        set(s => ({ orders: s.orders.map(o => o.id === id ? { ...o, status } : o) }))
+        await api.updateOrderStatus(id, status)  // sync to backend (Bug #3)
+      },
     }),
     { name: 'admin-store' }
   )

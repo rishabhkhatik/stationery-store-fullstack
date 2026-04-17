@@ -37,17 +37,12 @@ export default function App() {
     <BrowserRouter>
       <Toaster position="top-right" toastOptions={{ className: 'hot-toast', duration: 3000 }} />
       <Routes>
-        {/* Admin - full-screen, no header/footer */}
-        <Route path="/admin/*" element={
-          <ProtectedRoute adminOnly>
-            <AdminPanel />
-          </ProtectedRoute>
-        } />
+        <Route path="/admin/*" element={<ProtectedRoute adminOnly><AdminPanel /></ProtectedRoute>} />
 
-        {/* Public routes */}
         <Route path="/" element={<Layout><Home /></Layout>} />
-        <Route path="/login" element={<Layout noFooter><Auth mode="login" /></Layout>} />
-        <Route path="/register" element={<Layout noFooter><Auth mode="register" /></Layout>} />
+        <Route path="/login" element={<Layout noFooter><Auth /></Layout>} />
+        {/* Bug #1: Registration removed — redirect to login */}
+        <Route path="/register" element={<Navigate to="/login" replace />} />
         <Route path="/categories" element={<Layout><Categories /></Layout>} />
         <Route path="/category/:slug" element={<Layout><CategoryPage /></Layout>} />
         <Route path="/product/:slug" element={<Layout><ProductDetail /></Layout>} />
@@ -59,23 +54,9 @@ export default function App() {
         <Route path="/refund" element={<Layout><RefundPage /></Layout>} />
         <Route path="/shipping" element={<Layout><ShippingPage /></Layout>} />
 
-        {/* Protected customer routes */}
-        <Route path="/cart" element={
-          <Layout>
-            <ProtectedRoute>
-              <Cart />
-            </ProtectedRoute>
-          </Layout>
-        } />
-        <Route path="/orders" element={
-          <Layout>
-            <ProtectedRoute>
-              <OrdersPage />
-            </ProtectedRoute>
-          </Layout>
-        } />
+        <Route path="/cart" element={<Layout><ProtectedRoute><Cart /></ProtectedRoute></Layout>} />
+        <Route path="/orders" element={<Layout><ProtectedRoute><OrdersPage /></ProtectedRoute></Layout>} />
 
-        {/* 404 fallback */}
         <Route path="*" element={
           <Layout>
             <div style={{ textAlign: 'center', padding: '80px 20px' }}>

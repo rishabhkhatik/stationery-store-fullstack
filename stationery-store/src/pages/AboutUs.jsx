@@ -12,10 +12,10 @@ export default function AboutUs() {
     <div>
       {/* Hero */}
       <div style={{ background: 'linear-gradient(135deg, var(--primary), #c2307a)', padding: '60px 16px', textAlign: 'center', color: '#fff' }}>
-        <h1 style={{ fontSize: 36, fontWeight: 800, marginBottom: 12 }}>
+        <h1 style={{ fontSize: 'clamp(24px, 5vw, 36px)', fontWeight: 800, marginBottom: 12 }}>
           {siteConfig.aboutHeroTitle || 'About Us'}
         </h1>
-        <p style={{ fontSize: 18, opacity: 0.9, maxWidth: 600, margin: '0 auto' }}>
+        <p style={{ fontSize: 'clamp(14px, 3vw, 18px)', opacity: 0.9, maxWidth: 600, margin: '0 auto' }}>
           {siteConfig.aboutHeroSubtitle || 'Your trusted partner for stationery, gifts and more'}
         </p>
       </div>
@@ -23,16 +23,16 @@ export default function AboutUs() {
       <div className="container" style={{ padding: '48px 16px' }}>
         {/* Story */}
         <section style={{ maxWidth: 800, margin: '0 auto 56px', textAlign: 'center' }}>
-          <h2 style={{ fontSize: 26, fontWeight: 700, marginBottom: 16 }}>
+          <h2 style={{ fontSize: 'clamp(20px, 3vw, 26px)', fontWeight: 700, marginBottom: 16 }}>
             {siteConfig.aboutStoryTitle || 'Our Story'}
           </h2>
           <p style={{ fontSize: 16, color: 'var(--text-muted)', lineHeight: 1.8 }}>
-            {siteConfig.aboutUs || 'We are a leading stationery and gift store offering premium quality products at affordable prices. Founded with a passion for quality stationery and a commitment to excellent service, we serve thousands of customers across India.'}
+            {siteConfig.aboutUs || 'We are a leading stationery and gift store offering premium quality products at affordable prices.'}
           </p>
         </section>
 
         {/* Stats */}
-        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 20, marginBottom: 56 }}>
+        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 20, marginBottom: 56 }}>
           {(siteConfig.aboutStats || [
             { icon: '🛍️', number: '10,000+', label: 'Happy Customers' },
             { icon: '📦', number: '500+', label: 'Products' },
@@ -67,41 +67,57 @@ export default function AboutUs() {
           </section>
         )}
 
-        {/* Team Members - dynamic CMS driven */}
+        {/* ── Team Members — Bug #6 Fixed ──
+            Layout: 2 cards per row, image on top (centered), name+role+description BELOW
+        */}
         {team.length > 0 && (
           <section style={{ marginBottom: 56 }}>
-            <h2 style={{ fontSize: 26, fontWeight: 700, textAlign: 'center', marginBottom: 8 }}>Meet Our Team</h2>
+            <h2 style={{ fontSize: 'clamp(20px, 3vw, 26px)', fontWeight: 700, textAlign: 'center', marginBottom: 8 }}>
+              Meet Our Team
+            </h2>
             <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 14, marginBottom: 32 }}>
               The people behind your favourite stationery store
             </p>
 
-            {/* Max 2 cards per row, auto-adjust */}
+            {/* 2 cards per row on desktop, 1 on mobile */}
             <div style={{
               display: 'grid',
-              gridTemplateColumns: team.length === 1 ? '1fr' : 'repeat(2, minmax(0, 480px))',
+              gridTemplateColumns: 'repeat(2, 1fr)',
               gap: 24,
-              justifyContent: 'center',
-              maxWidth: team.length === 1 ? 480 : 980,
-              margin: '0 auto'
-            }}>
+              maxWidth: 860,
+              margin: '0 auto',
+            }}
+              className="team-grid"
+            >
               {visibleTeam.map((member, i) => (
-                <div key={i} style={{ background: '#fff', borderRadius: 16, border: '1px solid var(--border)', overflow: 'hidden', display: 'flex', gap: 0, boxShadow: '0 2px 12px rgba(0,0,0,0.06)', transition: 'transform 0.2s, box-shadow 0.2s' }}
+                <div key={i}
+                  style={{
+                    background: '#fff', borderRadius: 16, border: '1px solid var(--border)',
+                    overflow: 'hidden', boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+                    transition: 'transform 0.2s, box-shadow 0.2s',
+                    display: 'flex', flexDirection: 'column',   /* vertical layout */
+                  }}
                   onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 8px 32px rgba(0,0,0,0.12)' }}
-                  onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.06)' }}>
-                  <div style={{ width: 120, flexShrink: 0, background: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.06)' }}
+                >
+                  {/* Image — top, full width */}
+                  <div style={{ width: '100%', height: 200, background: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
                     {member.image ? (
-                      <img src={member.image} alt={member.name} style={{ width: 120, height: '100%', objectFit: 'cover', minHeight: 140 }} />
+                      <img src={member.image} alt={member.name}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     ) : (
-                      <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 28, fontWeight: 700 }}>
+                      <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 32, fontWeight: 700 }}>
                         {member.name?.[0]?.toUpperCase() || '?'}
                       </div>
                     )}
                   </div>
-                  <div style={{ padding: '20px 24px', flex: 1 }}>
+
+                  {/* Content — below image */}
+                  <div style={{ padding: '20px 24px 24px', textAlign: 'center', flex: 1 }}>
                     <h3 style={{ fontWeight: 700, fontSize: 17, marginBottom: 4 }}>{member.name}</h3>
-                    <p style={{ fontSize: 13, color: 'var(--primary)', fontWeight: 600, marginBottom: 8 }}>{member.designation}</p>
+                    <p style={{ fontSize: 13, color: 'var(--primary)', fontWeight: 600, marginBottom: 10 }}>{member.designation}</p>
                     {member.description && (
-                      <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6 }}>{member.description}</p>
+                      <p style={{ fontSize: 14, color: 'var(--text-muted)', lineHeight: 1.7 }}>{member.description}</p>
                     )}
                   </div>
                 </div>
@@ -127,6 +143,12 @@ export default function AboutUs() {
           <Link to="/contact" className="btn btn-primary">Contact Us →</Link>
         </section>
       </div>
+
+      <style>{`
+        @media (max-width: 600px) {
+          .team-grid { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
     </div>
   )
 }

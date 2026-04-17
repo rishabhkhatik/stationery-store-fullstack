@@ -5,14 +5,12 @@ import { useCartStore, useAuthStore, useAdminStore } from '../store'
 import { sendOrderNotification } from '../utils/notifications'
 import toast from 'react-hot-toast'
 
-// Load hCaptcha script once (free, no paid tier needed)
 function loadHCaptcha() {
   if (document.getElementById('hcaptcha-script')) return
   const s = document.createElement('script')
   s.id = 'hcaptcha-script'
   s.src = 'https://js.hcaptcha.com/1/api.js'
-  s.async = true
-  s.defer = true
+  s.async = true; s.defer = true
   document.head.appendChild(s)
 }
 
@@ -31,7 +29,6 @@ export default function Cart() {
 
   useEffect(() => { if (step === 'checkout') loadHCaptcha() }, [step])
 
-  // hCaptcha callback registered globally
   useEffect(() => {
     window.onCaptchaSuccess = () => setCaptchaDone(true)
     window.onCaptchaExpire = () => setCaptchaDone(false)
@@ -48,20 +45,15 @@ export default function Cart() {
 
   const handlePlaceOrder = async () => {
     if (!form.name || !form.phone || !form.address || !form.city || !form.pincode) {
-      toast.error('Please fill all required fields')
-      return
+      toast.error('Please fill all required fields'); return
     }
-    if (!captchaDone) {
-      toast.error('Please complete the security check (captcha)')
-      return
-    }
+    if (!captchaDone) { toast.error('Please complete the security check'); return }
     setPlacing(true)
     const order = {
       id: 'ORD-' + Date.now(),
       items: [...items],
       customer: { ...form, userId: user?.id },
-      subtotal, discount, total,
-      promoCode,
+      subtotal, discount, total, promoCode,
       status: 'Pending',
       createdAt: new Date().toISOString(),
     }
@@ -83,15 +75,14 @@ export default function Cart() {
           <h4 style={{ marginBottom: 12 }}>Order Summary</h4>
           {orderData.items.map(i => (
             <div key={i.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, marginBottom: 8 }}>
-              <span>{i.name} × {i.qty}</span>
-              <span>₹{i.price * i.qty}</span>
+              <span>{i.name} × {i.qty}</span><span>₹{i.price * i.qty}</span>
             </div>
           ))}
           <div style={{ borderTop: '1px solid var(--border)', marginTop: 12, paddingTop: 12, fontWeight: 700, display: 'flex', justifyContent: 'space-between' }}>
             <span>Total</span><span>₹{orderData.total}</span>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+        <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
           <Link to="/" className="btn btn-outline">Continue Shopping</Link>
           <Link to="/orders" className="btn btn-primary">My Orders</Link>
         </div>
@@ -115,16 +106,17 @@ export default function Cart() {
       <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 24 }}>{step === 'cart' ? '🛒 Your Cart' : '📋 Checkout'}</h1>
 
       {step === 'cart' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: 24, alignItems: 'start' }}>
+        <div className="cart-grid">
+          {/* Items */}
           <div>
             {items.map(item => (
-              <div key={item.id} style={{ display: 'flex', gap: 16, padding: 16, background: '#fff', borderRadius: 12, border: '1px solid var(--border)', marginBottom: 12 }}>
-                <img src={item.image} alt={item.name} style={{ width: 90, height: 90, objectFit: 'cover', borderRadius: 8 }}
-                  onError={e => e.target.src = 'https://via.placeholder.com/90'} />
-                <div style={{ flex: 1 }}>
-                  <h4 style={{ fontSize: 15, fontWeight: 600, marginBottom: 4 }}>{item.name}</h4>
-                  <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--primary)', marginBottom: 12 }}>₹{item.price}</p>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+              <div key={item.id} style={{ display: 'flex', gap: 12, padding: 16, background: '#fff', borderRadius: 12, border: '1px solid var(--border)', marginBottom: 12, flexWrap: 'wrap' }}>
+                <img src={item.image} alt={item.name} style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8, flexShrink: 0 }}
+                  onError={e => e.target.src = 'https://via.placeholder.com/80'} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>{item.name}</h4>
+                  <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--primary)', marginBottom: 10 }}>₹{item.price}</p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                     <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
                       <button onClick={() => updateQty(item.id, item.qty - 1)} style={{ width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f5f5f5', border: 'none', cursor: 'pointer' }}><Minus size={12} /></button>
                       <span style={{ width: 36, textAlign: 'center', fontSize: 14, fontWeight: 600 }}>{item.qty}</span>
@@ -140,7 +132,8 @@ export default function Cart() {
             ))}
           </div>
 
-          <div style={{ background: '#fff', borderRadius: 12, border: '1px solid var(--border)', padding: 20, position: 'sticky', top: 90 }}>
+          {/* Summary sidebar */}
+          <div style={{ background: '#fff', borderRadius: 12, border: '1px solid var(--border)', padding: 20, alignSelf: 'start' }}>
             <h3 style={{ fontWeight: 700, marginBottom: 16 }}>Order Summary</h3>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, marginBottom: 8 }}>
               <span>Subtotal ({items.length} items)</span><span>₹{subtotal}</span>
@@ -176,10 +169,11 @@ export default function Cart() {
       )}
 
       {step === 'checkout' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: 24, alignItems: 'start' }}>
+        <div className="cart-grid">
+          {/* Delivery form */}
           <div style={{ background: '#fff', borderRadius: 12, border: '1px solid var(--border)', padding: 24 }}>
             <h3 style={{ fontWeight: 700, marginBottom: 20 }}>Delivery Details</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div className="checkout-form-grid">
               {[
                 { key: 'name', label: 'Full Name *', type: 'text', full: false },
                 { key: 'phone', label: 'Phone Number *', type: 'tel', full: false },
@@ -189,35 +183,26 @@ export default function Cart() {
                 { key: 'pincode', label: 'Pincode *', type: 'text', full: false },
                 { key: 'notes', label: 'Order Notes (optional)', type: 'text', full: true },
               ].map(f => (
-                <div key={f.key} style={{ gridColumn: f.full ? 'span 2' : 'span 1' }}>
+                <div key={f.key} style={{ gridColumn: f.full ? 'span 2' : 'span 1' }} className={f.full ? 'full-col' : ''}>
                   <label style={{ fontSize: 13, fontWeight: 500, display: 'block', marginBottom: 6 }}>{f.label}</label>
                   <input type={f.type} value={form[f.key]} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
-                    style={{ width: '100%', padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 8, fontSize: 14, outline: 'none' }}
+                    style={{ width: '100%', padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 8, fontSize: 14, outline: 'none', boxSizing: 'border-box' }}
                     onFocus={e => e.target.style.borderColor = 'var(--primary)'}
                     onBlur={e => e.target.style.borderColor = 'var(--border)'} />
                 </div>
               ))}
             </div>
 
-            {/* hCaptcha - completely free */}
             <div style={{ marginTop: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                 <ShieldCheck size={16} color="var(--success)" />
                 <span style={{ fontSize: 13, fontWeight: 500 }}>Security Verification</span>
               </div>
-              <div
-                ref={captchaRef}
-                className="h-captcha"
+              <div ref={captchaRef} className="h-captcha"
                 data-sitekey="10000000-ffff-ffff-ffff-000000000001"
                 data-callback="onCaptchaSuccess"
                 data-expired-callback="onCaptchaExpire"
-                data-theme="light"
-              />
-              {!captchaDone && (
-                <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6 }}>
-                  Complete the captcha above to place your order. Using free hCaptcha.
-                </p>
-              )}
+                data-theme="light" />
               {captchaDone && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, color: 'var(--success)', fontSize: 13, fontWeight: 500 }}>
                   <ShieldCheck size={14} /> Verified!
@@ -226,13 +211,14 @@ export default function Cart() {
             </div>
           </div>
 
+          {/* Summary + Place Order */}
           <div>
             <div style={{ background: '#fff', borderRadius: 12, border: '1px solid var(--border)', padding: 20, marginBottom: 16 }}>
               <h4 style={{ fontWeight: 700, marginBottom: 12 }}>Order Summary</h4>
               {items.map(i => (
                 <div key={i.id} style={{ display: 'flex', gap: 10, marginBottom: 10 }}>
-                  <img src={i.image} style={{ width: 44, height: 44, objectFit: 'cover', borderRadius: 6 }} onError={e => e.target.style.display = 'none'} />
-                  <div style={{ flex: 1 }}>
+                  <img src={i.image} style={{ width: 44, height: 44, objectFit: 'cover', borderRadius: 6, flexShrink: 0 }} onError={e => e.target.style.display = 'none'} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ fontSize: 13, fontWeight: 500, lineHeight: 1.3 }}>{i.name}</p>
                     <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>×{i.qty} = ₹{i.price * i.qty}</p>
                   </div>
@@ -245,19 +231,38 @@ export default function Cart() {
             <div style={{ display: 'flex', gap: 10 }}>
               <button onClick={() => { setStep('cart'); setCaptchaDone(false) }} className="btn btn-outline" style={{ flex: 1, justifyContent: 'center' }}>Back</button>
               <button onClick={handlePlaceOrder} disabled={placing} className="btn btn-primary" style={{ flex: 2, justifyContent: 'center', padding: '12px', opacity: placing ? 0.7 : 1 }}>
-                {placing ? 'Placing...' : 'Place Order'}
+                {placing ? 'Placing…' : 'Place Order'}
               </button>
             </div>
           </div>
         </div>
       )}
 
+      {/* Bug #4: Mobile responsive styles */}
       <style>{`
-        @media (max-width: 900px) {
-          .container > h1 + div { grid-template-columns: 1fr !important; }
+        .cart-grid {
+          display: grid;
+          grid-template-columns: 1fr 360px;
+          gap: 24px;
+          align-items: start;
+        }
+        .checkout-form-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 16px;
+        }
+        @media (max-width: 768px) {
+          .cart-grid {
+            grid-template-columns: 1fr !important;
+          }
+          .checkout-form-grid {
+            grid-template-columns: 1fr !important;
+          }
+          .full-col, .checkout-form-grid > div {
+            grid-column: span 1 !important;
+          }
         }
       `}</style>
     </div>
   )
 }
-
