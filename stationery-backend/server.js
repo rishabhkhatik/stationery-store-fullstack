@@ -123,6 +123,24 @@ app.get('/api/fix-images', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// Add fixed amount to all product prices
+// Call: /api/update-prices?add=5
+app.get('/api/update-prices', async (req, res) => {
+  try {
+    const add = parseFloat(req.query.add);
+    if (isNaN(add) || add <= 0) return res.status(400).json({ error: "Pass ?add=5 (positive number)" });
+    const products = await Product.find({});
+    const ops = products.map(p => ({
+      updateOne: {
+        filter: { _id: p._id },
+        update: { $set: { price: Math.round((p.price || 0) + add) } }
+      }
+    }));
+    await Product.bulkWrite(ops);
+    res.json({ message: `Added ₹${add} to all product prices`, updated: ops.length });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 app.get('/api/products', async (req, res) => {
   try { res.json(await Product.find().sort({ _id: -1 })); }
   catch (err) { res.status(500).json({ error: "Fetch error" }); }
