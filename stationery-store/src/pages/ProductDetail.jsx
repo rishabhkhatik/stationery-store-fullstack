@@ -52,7 +52,7 @@ export default function ProductDetail() {
         <Link to="/">Home</Link> / <Link to="/categories">Categories</Link> / <Link to={`/category/${product.category}`}>{product.category.replace(/-/g, ' ')}</Link> / <span style={{ color: 'var(--text)' }}>{product.name}</span>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 40, alignItems: 'start' }}>
+      <div className="product-detail-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 40, alignItems: 'start' }}>
         {/* Images */}
         <div>
           <div style={{ position: 'relative', borderRadius: 16, overflow: 'hidden', background: '#f9f9f9', aspectRatio: '1', marginBottom: 12 }}>
@@ -170,7 +170,7 @@ export default function ProductDetail() {
 
       <style>{`
         @media (max-width: 768px) {
-          .container > div:first-of-type + div { grid-template-columns: 1fr !important; }
+          .product-detail-grid { grid-template-columns: 1fr !important; gap: 24px !important; }
         }
       `}</style>
     </div>

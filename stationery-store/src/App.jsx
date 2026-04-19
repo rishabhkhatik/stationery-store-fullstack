@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import Header from './components/layout/Header'
@@ -13,7 +13,7 @@ import SearchResults from './pages/SearchResults'
 import AboutUs from './pages/AboutUs'
 import AdminPanel from './pages/Admin'
 import { ContactPage, OrdersPage, TermsPage, PrivacyPage, RefundPage, ShippingPage } from './pages/OtherPages'
-import { useAuthStore } from './store'
+import { useAuthStore, useAdminStore } from './store'
 
 function ProtectedRoute({ children, adminOnly = false }) {
   const { isLoggedIn, user } = useAuthStore()
@@ -33,6 +33,12 @@ function Layout({ children, noFooter = false }) {
 }
 
 export default function App() {
+  const { syncFromBackend } = useAdminStore()
+
+  useEffect(() => {
+    syncFromBackend()
+  }, [])
+
   return (
     <BrowserRouter>
       <Toaster position="top-right" toastOptions={{ className: 'hot-toast', duration: 3000 }} />

@@ -43,16 +43,16 @@ export default function Home() {
             {banners.map(banner => (
               <div key={banner.id}>
                 <Link to={banner.link || '/categories'} style={{ display: 'block' }}>
-                  <div style={{ position: 'relative', height: 420, overflow: 'hidden', background: '#f9e0ef' }}>
+                  <div style={{ position: 'relative', overflow: 'hidden', background: '#f9e0ef' }} className="hero-banner-slide">
                     <img src={banner.image} alt={banner.title || 'Banner'}
                       style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                       onError={e => { e.target.style.display = 'none' }} />
                     {(banner.title || banner.subtitle) && (
-                      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right,rgba(0,0,0,.5) 0%,transparent 65%)', display: 'flex', alignItems: 'center', padding: '0 60px' }}>
-                        <div>
-                          {banner.title && <h1 style={{ color: '#fff', fontSize: 36, fontWeight: 700, marginBottom: 10, lineHeight: 1.2 }}>{banner.title}</h1>}
-                          {banner.subtitle && <p style={{ color: '#eee', fontSize: 16, marginBottom: 24 }}>{banner.subtitle}</p>}
-                          <span className="btn btn-primary">{siteConfig.bannerButtonText || 'Shop Now'} →</span>
+                      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right,rgba(0,0,0,.5) 0%,transparent 65%)', display: 'flex', alignItems: 'center', padding: '0 5%' }}>
+                        <div style={{ maxWidth: '55%' }}>
+                          {banner.title && <h1 style={{ color: '#fff', fontSize: 'clamp(18px, 4vw, 36px)', fontWeight: 700, marginBottom: 8, lineHeight: 1.2 }}>{banner.title}</h1>}
+                          {banner.subtitle && <p style={{ color: '#eee', fontSize: 'clamp(12px, 2vw, 16px)', marginBottom: 16 }}>{banner.subtitle}</p>}
+                          <span className="btn btn-primary" style={{ fontSize: 'clamp(12px, 2vw, 14px)' }}>{siteConfig.bannerButtonText || 'Shop Now'} →</span>
                         </div>
                       </div>
                     )}

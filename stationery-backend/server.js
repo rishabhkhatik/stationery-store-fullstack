@@ -5,7 +5,13 @@ const cors = require('cors');
 const fs = require('fs');
 
 const app = express();
-app.use(cors());
+
+// Allow requests from any origin in production (Netlify frontend)
+app.use(cors({
+  origin: process.env.ALLOWED_ORIGIN || '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type'],
+}));
 app.use(express.json({ limit: '10mb' }));
 
 mongoose.connect(process.env.MONGODB_URI)
@@ -111,4 +117,4 @@ app.post('/api/config', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`🚀 Server on port ${PORT}`));
+app.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server on port ${PORT}`));

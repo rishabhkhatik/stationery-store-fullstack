@@ -27,7 +27,7 @@ export default function CategoryPage() {
       {category?.image && (
         <div style={{ height: 180, borderRadius: 16, overflow: 'hidden', marginBottom: 24, background: '#f5f5f5', position: 'relative' }}>
           <img src={category.image} alt={category.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.35)', display: 'flex', alignItems: 'center', paddingLeft: 40 }}>
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.35)', display: 'flex', alignItems: 'center', paddingLeft: 'clamp(16px, 5%, 40px)' }}>
             <div>
               <h1 style={{ color: '#fff', fontSize: 28, fontWeight: 700 }}>{category.name}</h1>
               <p style={{ color: '#eee', fontSize: 14 }}>{filtered.length} products</p>

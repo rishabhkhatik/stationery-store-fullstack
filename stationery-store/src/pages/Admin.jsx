@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import {
   LayoutDashboard, Package, Tag, Image, ShoppingBag, Users, Settings,
@@ -22,10 +22,18 @@ const NAV_ITEMS = [
 
 export default function AdminPanel() {
   const { user, isLoggedIn, logout } = useAuthStore()
+  const { syncFromBackend } = useAdminStore()
   const navigate = useNavigate()
   const [tab, setTab] = useState('dashboard')
   // Bug #4: Mobile sidebar state
   const [sidebarOpen, setSidebarOpen] = useState(false)
+
+  // Real-time sync: fetch fresh data from backend on mount and every 15s
+  useEffect(() => {
+    syncFromBackend()
+    const interval = setInterval(syncFromBackend, 15000)
+    return () => clearInterval(interval)
+  }, [])
 
   if (!isLoggedIn || user?.role !== 'admin') {
     return (
