@@ -112,7 +112,7 @@ export default function Cart() {
             {items.map(item => (
               <div key={item.id} style={{ display: 'flex', gap: 12, padding: 16, background: '#fff', borderRadius: 12, border: '1px solid var(--border)', marginBottom: 12, flexWrap: 'wrap' }}>
                 <img src={item.image} alt={item.name} style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8, flexShrink: 0 }}
-                  onError={e => e.target.src = 'https://via.placeholder.com/80'} />
+                  onError={e => { e.target.onerror = null; e.target.src = 'https://placehold.co/80x80?text=No+Image' }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>{item.name}</h4>
                   <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--primary)', marginBottom: 10 }}>₹{item.price}</p>

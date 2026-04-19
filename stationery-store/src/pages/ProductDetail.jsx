@@ -57,7 +57,7 @@ export default function ProductDetail() {
         <div>
           <div style={{ position: 'relative', borderRadius: 16, overflow: 'hidden', background: '#f9f9f9', aspectRatio: '1', marginBottom: 12 }}>
             <img src={images[activeImg]} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-              onError={e => { e.target.src = 'https://via.placeholder.com/500' }} />
+              onError={e => { e.target.onerror = null; e.target.src = 'https://placehold.co/500x500?text=No+Image' }} />
             {images.length > 1 && (
               <>
                 <button onClick={() => setActiveImg(i => (i - 1 + images.length) % images.length)}

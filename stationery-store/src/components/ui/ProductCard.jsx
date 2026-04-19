@@ -47,7 +47,7 @@ export default function ProductCard({ product }) {
               style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.3s' }}
               onMouseEnter={e => e.target.style.transform = 'scale(1.05)'}
               onMouseLeave={e => e.target.style.transform = 'scale(1)'}
-              onError={e => { e.target.src = 'https://via.placeholder.com/300x300?text=Product' }} />
+              onError={e => { e.target.onerror = null; e.target.src = 'https://placehold.co/300x300?text=No+Image' }} />
 
             {product.discount > 0 && (
               <span style={{ position: 'absolute', top: 8, left: 8, background: '#ef4444', color: '#fff', fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 20 }}>

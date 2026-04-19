@@ -43,10 +43,84 @@ app.get('/api/seed', async (req, res) => {
   try {
     const rawData = fs.readFileSync('./products.json');
     const jsonData = JSON.parse(rawData);
-    await Product.deleteMany({});
-    const products = await Product.insertMany(jsonData);
-    res.json({ message: "Seeded!", count: products.length });
+    // Upsert mode: update existing products by id, insert new ones — nothing gets deleted
+    const ops = jsonData.map(p => ({
+      updateOne: {
+        filter: { id: p.id },
+        update: { $set: p },
+        upsert: true,
+      }
+    }));
+    const result = await Product.bulkWrite(ops);
+    res.json({ message: "Seeded (upsert)!", upserted: result.upsertedCount, modified: result.modifiedCount });
   } catch (err) { res.status(500).json({ error: "Seed Error: " + err.message }); }
+});
+
+// Fix broken image URLs — replaces fake/invalid CDN URLs with real verified ones
+// Call once: /api/fix-images
+app.get('/api/fix-images', async (req, res) => {
+  try {
+    const realImages = {
+      'SKU-0002': 'https://image.cdn.shpy.in/308378/1687878793631_SKU-0002_0.jpg',
+      'SKU-0001': 'https://image.cdn.shpy.in/308378/1687878793631_SKU-0002_0.jpg',
+      'SKU-0004': 'https://image.cdn.shpy.in/308378/1688204328823_SKU-0004_0.jpg',
+      'SKU-0003': 'https://image.cdn.shpy.in/308378/1688204328823_SKU-0004_0.jpg',
+      'SKU-0005': 'https://image.cdn.shpy.in/308378/1688204496073_SKU-0005_0.jpg',
+      'SKU-0006': 'https://image.cdn.shpy.in/308378/1688204635152_SKU-0006_0.jpg',
+      'SKU-0007': 'https://image.cdn.shpy.in/308378/1688204739462_SKU-0007_0.jpg',
+      'SKU-0008': 'https://image.cdn.shpy.in/308378/1688204844808_SKU-0008_0.jpg',
+      'SKU-0009': 'https://image.cdn.shpy.in/308378/1688204917041_SKU-0009_0.jpg',
+      'SKU-0010': 'https://image.cdn.shpy.in/308378/1688288403797_SKU-0010_0.jpg',
+      'SKU-0011': 'https://image.cdn.shpy.in/308378/1688288501165_SKU-0011_0.jpg',
+      'P-001': 'https://image.cdn.shpy.in/308378/1689167641675_1.jpeg',
+      'P-002': 'https://image.cdn.shpy.in/308378/1689167615548_5.jpeg',
+      'P-003': 'https://image.cdn.shpy.in/308378/1689167607601_6.jpeg',
+      'P-004': 'https://image.cdn.shpy.in/308378/1689167598093_11.jpeg',
+      'P-005': 'https://image.cdn.shpy.in/308378/1689167590188_7.jpeg',
+      'P-006': 'https://image.cdn.shpy.in/308378/1689167579835_4.jpeg',
+      'P-007': 'https://image.cdn.shpy.in/308378/1689167570950_8.jpeg',
+      'P-008': 'https://image.cdn.shpy.in/308378/1689167555569_9.jpeg',
+      'P-009': 'https://image.cdn.shpy.in/308378/1689167547306_10.jpeg',
+      'P-010': 'https://image.cdn.shpy.in/308378/1689167538098_12.jpeg',
+      'P-011': 'https://image.cdn.shpy.in/308378/1689167525617_13.jpeg',
+      'P-012': 'https://image.cdn.shpy.in/308378/1689167515243_14.jpeg',
+      'P-013': 'https://image.cdn.shpy.in/308378/1689167506818_15.jpeg',
+      'P-014': 'https://image.cdn.shpy.in/308378/1689167498063_16.jpeg',
+      'P-015': 'https://image.cdn.shpy.in/308378/1689167489845_17.jpeg',
+    };
+    // For products NOT in realImages map, fix broken CDN paths (ones without valid timestamps)
+    const allProducts = await Product.find({});
+    const ops = [];
+    for (const p of allProducts) {
+      if (realImages[p.id]) {
+        ops.push({ updateOne: { filter: { id: p.id }, update: { $set: { image: realImages[p.id] } } } });
+      } else if (p.image && !p.image.match(/\/\d{13}_/)) {
+        // Image URL has no valid 13-digit timestamp — likely fake, replace with category placeholder
+        const catImages = {
+          'slime': 'https://image.cdn.shpy.in/308378/1688204496073_SKU-0005_0.jpg',
+          'pencil-eraser': 'https://image.cdn.shpy.in/308378/1689167633529_2.jpeg',
+          'pencil': 'https://image.cdn.shpy.in/308378/1689167641675_1.jpeg',
+          'notebook': 'https://image.cdn.shpy.in/308378/1689167615548_5.jpeg',
+          'stapler': 'https://image.cdn.shpy.in/308378/1689167607601_6.jpeg',
+          'geometry-box': 'https://image.cdn.shpy.in/308378/1689167598093_11.jpeg',
+          'giftset': 'https://image.cdn.shpy.in/308378/1689167590188_7.jpeg',
+          'pen': 'https://image.cdn.shpy.in/308378/1689167579835_4.jpeg',
+          'sippers-bottles': 'https://image.cdn.shpy.in/308378/1689167570950_8.jpeg',
+          'lunch-box': 'https://image.cdn.shpy.in/308378/1689167555569_9.jpeg',
+          'pencil-box': 'https://image.cdn.shpy.in/308378/1689167547306_10.jpeg',
+          'pouches': 'https://image.cdn.shpy.in/308378/1689167498063_16.jpeg',
+          'lamp': 'https://image.cdn.shpy.in/308378/1689167489845_17.jpeg',
+          'markers': 'https://image.cdn.shpy.in/308378/1689167515243_14.jpeg',
+          'white-board': 'https://image.cdn.shpy.in/308378/1689167506818_15.jpeg',
+          'exam-pads': 'https://image.cdn.shpy.in/308378/1689167525617_13.jpeg',
+        };
+        const fallback = catImages[p.category] || 'https://image.cdn.shpy.in/308378/1689167590188_7.jpeg';
+        ops.push({ updateOne: { filter: { id: p.id }, update: { $set: { image: fallback } } } });
+      }
+    }
+    if (ops.length) await Product.bulkWrite(ops);
+    res.json({ message: "Images fixed!", updated: ops.length });
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.get('/api/products', async (req, res) => {
