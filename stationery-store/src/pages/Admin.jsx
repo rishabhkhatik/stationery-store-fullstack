@@ -167,8 +167,8 @@ function Dashboard() {
       <div style={{ background: '#fff', borderRadius: 12, padding: 20, boxShadow: '0 1px 6px rgba(0,0,0,0.06)', overflowX: 'auto' }}>
         <h3 style={{ fontWeight: 700, marginBottom: 14 }}>Recent Orders</h3>
         {orders.slice(0, 5).map(o => (
-          <div key={o.id} style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, padding: '10px 0', borderBottom: '1px solid var(--border)', fontSize: 14 }}>
-            <span style={{ fontWeight: 500 }}>{o.id}</span>
+          <div key={o.id || o.orderId} style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, padding: '10px 0', borderBottom: '1px solid var(--border)', fontSize: 14 }}>
+            <span style={{ fontWeight: 500 }}>{o.id || o.orderId}</span>
             <span>{o.customer?.name}</span>
             <span>₹{o.total}</span>
             <span style={{ color: o.status === 'Delivered' ? 'var(--success)' : o.status === 'Pending' ? '#f59e0b' : 'var(--primary)' }}>{o.status}</span>
@@ -478,7 +478,7 @@ function OrderManager() {
 
   const exportCSV = () => {
     const rows = [['Order ID', 'Customer', 'Phone', 'Email', 'Address', 'Items', 'Total', 'Status', 'Date']]
-    orders.forEach(o => rows.push([o.id, o.customer?.name, o.customer?.phone, o.customer?.email, `${o.customer?.address} ${o.customer?.city}`, o.items?.length, o.total, o.status, new Date(o.createdAt).toLocaleDateString('en-IN')]))
+    orders.forEach(o => rows.push([o.id || o.orderId, o.customer?.name, o.customer?.phone, o.customer?.email, `${o.customer?.address} ${o.customer?.city}`, o.items?.length, o.total, o.status, new Date(o.createdAt).toLocaleDateString('en-IN')]))
     const csv = rows.map(r => r.join(',')).join('\n')
     const a = document.createElement('a')
     a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv)
@@ -507,15 +507,15 @@ function OrderManager() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         {orders.length === 0 && <div style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)', background: '#fff', borderRadius: 12 }}>No orders yet.</div>}
         {orders.map(o => (
-          <div key={o.id} style={{ background: '#fff', borderRadius: 12, padding: 20, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', border: '1px solid var(--border)' }}>
+          <div key={o.id || o.orderId} style={{ background: '#fff', borderRadius: 12, padding: 20, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', border: '1px solid var(--border)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12, marginBottom: 14 }}>
               <div>
-                <p style={{ fontWeight: 700, fontSize: 15 }}>{o.id}</p>
+                <p style={{ fontWeight: 700, fontSize: 15 }}>{o.id || o.orderId}</p>
                 <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>{new Date(o.createdAt).toLocaleString('en-IN')}</p>
               </div>
               <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
                 <span style={{ background: (statusColors[o.status] || '#ccc') + '20', color: statusColors[o.status] || '#666', padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>{o.status}</span>
-                <select value={o.status} onChange={e => updateOrderStatus(o.id, e.target.value)}
+                <select value={o.status} onChange={e => updateOrderStatus(o.id || o.orderId, e.target.value)}
                   style={{ padding: '6px 10px', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, background: '#fff', cursor: 'pointer' }}>
                   {statuses.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
@@ -563,31 +563,47 @@ function OrderManager() {
 // ── User Manager ──────────────────────────────────────────────
 function UserManager() {
   const { users } = useAuthStore()
+  const { activeCarts } = useAdminStore()
   const customers = users.filter(u => u.role !== 'admin')
+
+  const getCartForUser = (userId, phone) =>
+    activeCarts?.find(c => c.userId === userId || c.userId === phone)
+
   return (
     <div>
       <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 20 }}>Customers ({customers.length})</h2>
       <div style={{ background: '#fff', borderRadius: 12, overflow: 'hidden', overflowX: 'auto', boxShadow: '0 1px 6px rgba(0,0,0,0.06)' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 480 }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 600 }}>
           <thead style={{ background: '#f9f9f9' }}>
-            <tr>{['Name', 'Email', 'Phone', 'Joined'].map(h => (
+            <tr>{['Name', 'Phone', 'Email', 'Address', 'Active Cart', 'Joined'].map(h => (
               <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', borderBottom: '1px solid var(--border)' }}>{h}</th>
             ))}</tr>
           </thead>
           <tbody>
             {customers.length === 0 && (
-              <tr><td colSpan={4} style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)', fontSize: 14 }}>
-                No customers yet. (Registration is disabled — admin only)
+              <tr><td colSpan={6} style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)', fontSize: 14 }}>
+                No customers yet. Customers appear here after they sign up.
               </td></tr>
             )}
-            {customers.map(u => (
-              <tr key={u.id} style={{ borderBottom: '1px solid #f5f5f5' }}>
-                <td style={{ padding: '12px 16px', fontSize: 14, fontWeight: 500 }}>{u.name}</td>
-                <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-muted)' }}>{u.email}</td>
-                <td style={{ padding: '12px 16px', fontSize: 13 }}>{u.phone}</td>
-                <td style={{ padding: '12px 16px', fontSize: 12, color: 'var(--text-muted)' }}>{u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-IN') : '—'}</td>
-              </tr>
-            ))}
+            {customers.map(u => {
+              const cart = getCartForUser(u.id, u.phone)
+              const cartCount = cart?.items?.reduce((s, i) => s + (i.qty || 0), 0) || 0
+              return (
+                <tr key={u.id} style={{ borderBottom: '1px solid #f5f5f5' }}>
+                  <td style={{ padding: '12px 16px', fontSize: 14, fontWeight: 500 }}>{u.name}</td>
+                  <td style={{ padding: '12px 16px', fontSize: 13 }}>{u.phone}</td>
+                  <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-muted)' }}>{u.email || '—'}</td>
+                  <td style={{ padding: '12px 16px', fontSize: 12, color: 'var(--text-muted)', maxWidth: 160 }}>{u.address || '—'}</td>
+                  <td style={{ padding: '12px 16px', fontSize: 13 }}>
+                    {cartCount > 0
+                      ? <span style={{ background: '#fef3c7', color: '#92400e', padding: '2px 10px', borderRadius: 12, fontSize: 12, fontWeight: 600 }}>🛒 {cartCount} item{cartCount !== 1 ? 's' : ''}</span>
+                      : <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>Empty</span>
+                    }
+                  </td>
+                  <td style={{ padding: '12px 16px', fontSize: 12, color: 'var(--text-muted)' }}>{u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-IN') : '—'}</td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
@@ -927,7 +943,92 @@ function SiteSettings() {
             <Lock size={14} /> Update Password
           </button>
         </div>
+
+        {/* Pricing Audit */}
+        <PricingAudit />
+
       </div>
+    </div>
+  )
+}
+
+// ── Pricing Audit ────────────────────────────────────────────
+// Base prices from products.json (seed data — before any adjustments)
+const BASE_PRICES = {
+  'SKU-0001': 24, 'SKU-0002': 33, 'SKU-0003': 24, 'SKU-0004': 27,
+  'SKU-0005': 150, 'SKU-0006': 185, 'SKU-0007': 249, 'SKU-0008': 120,
+  'SKU-0009': 95, 'SKU-0010': 110, 'SKU-0011': 26, 'SKU-0012': 33,
+}
+
+function PricingAudit() {
+  const { products } = useAdminStore()
+  const [applied, setApplied] = useState(null)
+
+  // Check if ₹5 has already been added by comparing 3 sample products
+  const samples = Object.entries(BASE_PRICES).slice(0, 3).map(([id, base]) => {
+    const live = products.find(p => p.id === id)
+    return { id, base, live: live?.price, diff: live ? live.price - base : null }
+  })
+  const avgDiff = samples.filter(s => s.diff !== null).reduce((a, b) => a + b.diff, 0) / samples.filter(s => s.diff !== null).length
+  const alreadyApplied = Math.abs(avgDiff - 5) < 1   // within ₹1 of expected diff
+
+  const handleApply = async () => {
+    const API = import.meta.env.VITE_API_URL
+    if (!API) { toast.error('Backend API not configured (VITE_API_URL missing)'); return }
+    try {
+      const res = await fetch(`${API}/api/update-prices?add=5`)
+      const data = await res.json()
+      toast.success(data.message || '₹5 applied to all prices!')
+      setApplied(true)
+    } catch { toast.error('Failed to apply price update. Check backend.') }
+  }
+
+  return (
+    <div style={{ background: '#fff', borderRadius: 12, padding: 20, boxShadow: '0 1px 6px rgba(0,0,0,0.06)' }}>
+      <h3 style={{ fontWeight: 700, marginBottom: 8, fontSize: 15 }}>💰 Pricing Audit — ₹5 Increase Check</h3>
+      <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 16 }}>
+        Compares live product prices against the original seed data to detect if the ₹5 increase was already applied.
+      </p>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, marginBottom: 16 }}>
+        <thead>
+          <tr style={{ background: '#f9f9f9' }}>
+            {['Product ID', 'Base Price (seed)', 'Live Price (DB)', 'Difference'].map(h => (
+              <th key={h} style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 600, color: 'var(--text-muted)', borderBottom: '1px solid var(--border)' }}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {samples.map(s => (
+            <tr key={s.id} style={{ borderBottom: '1px solid #f5f5f5' }}>
+              <td style={{ padding: '8px 12px', fontWeight: 500 }}>{s.id}</td>
+              <td style={{ padding: '8px 12px' }}>₹{s.base}</td>
+              <td style={{ padding: '8px 12px' }}>{s.live !== undefined ? `₹${s.live}` : <span style={{ color: 'var(--text-muted)' }}>Not in DB</span>}</td>
+              <td style={{ padding: '8px 12px', fontWeight: 600, color: s.diff >= 5 ? 'var(--success)' : s.diff > 0 ? '#f59e0b' : 'var(--error)' }}>
+                {s.diff !== null ? (s.diff > 0 ? `+₹${s.diff}` : `₹${s.diff}`) : '—'}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {samples.some(s => s.live !== undefined) && (
+        <div style={{ padding: '12px 16px', borderRadius: 8, marginBottom: 16, background: alreadyApplied ? '#f0fdf4' : '#fff7ed', border: `1px solid ${alreadyApplied ? '#bbf7d0' : '#fed7aa'}` }}>
+          <p style={{ fontSize: 13, fontWeight: 600, color: alreadyApplied ? '#166534' : '#92400e' }}>
+            {alreadyApplied
+              ? '✅ ₹5 increase already applied — do NOT apply again.'
+              : '⚠️ ₹5 increase NOT detected. Safe to apply below.'}
+          </p>
+        </div>
+      )}
+
+      {!alreadyApplied && !applied && (
+        <button onClick={handleApply} className="btn btn-primary" style={{ fontSize: 13 }}>
+          Apply ₹5 to All Product Prices
+        </button>
+      )}
+      {applied && (
+        <p style={{ fontSize: 13, color: 'var(--success)', fontWeight: 600 }}>✅ ₹5 increase applied! Refresh to see updated prices.</p>
+      )}
     </div>
   )
 }

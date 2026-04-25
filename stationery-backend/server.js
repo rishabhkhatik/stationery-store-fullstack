@@ -39,6 +39,17 @@ const Order = mongoose.model('Order', OrderSchema);
 const ConfigSchema = new mongoose.Schema({ key: String, value: mongoose.Schema.Types.Mixed }, { timestamps: true });
 const Config = mongoose.model('Config', ConfigSchema);
 
+const UserSchema = new mongoose.Schema({
+  id: String, name: String, phone: String, address: String, email: String,
+  role: { type: String, default: 'customer' },
+}, { timestamps: true });
+const User = mongoose.model('User', UserSchema);
+
+const CartSchema = new mongoose.Schema({
+  userId: String, items: Array,
+}, { timestamps: true });
+const Cart = mongoose.model('Cart', CartSchema);
+
 app.get('/api/seed', async (req, res) => {
   try {
     const rawData = fs.readFileSync('./products.json');
@@ -206,6 +217,41 @@ app.post('/api/config', async (req, res) => {
     }
     res.json({ message: "Saved" });
   } catch (err) { res.status(500).json({ error: "Config save error" }); }
+});
+
+app.get('/api/users', async (req, res) => {
+  try { res.json(await User.find({ role: 'customer' }).sort({ createdAt: -1 })); }
+  catch (err) { res.status(500).json({ error: "Fetch users error" }); }
+});
+
+app.post('/api/users', async (req, res) => {
+  try {
+    const body = req.body;
+    if (!body.name || !body.phone) return res.status(400).json({ error: "Name and phone required" });
+    // Upsert by phone to avoid duplicates
+    const user = await User.findOneAndUpdate(
+      { phone: body.phone },
+      { $set: body },
+      { upsert: true, new: true }
+    );
+    res.json(user);
+  } catch (err) { res.status(500).json({ error: "User save error: " + err.message }); }
+});
+
+app.get('/api/carts', async (req, res) => {
+  try { res.json(await Cart.find().sort({ updatedAt: -1 })); }
+  catch (err) { res.status(500).json({ error: "Fetch carts error" }); }
+});
+
+app.post('/api/carts/:userId', async (req, res) => {
+  try {
+    const cart = await Cart.findOneAndUpdate(
+      { userId: req.params.userId },
+      { $set: { userId: req.params.userId, items: req.body.items || [] } },
+      { upsert: true, new: true }
+    );
+    res.json(cart);
+  } catch (err) { res.status(500).json({ error: "Cart save error: " + err.message }); }
 });
 
 const PORT = process.env.PORT || 5000;

@@ -4,12 +4,12 @@ import { PRODUCTS, CATEGORIES, BANNERS } from './data/products'
 import { api } from './utils/api'
 
 // ── Auth Store ──────────────────────────────────────────────
-// Only admin is seeded — registration removed (Bug #1)
+// Admin login + Customer signup (no password for customers)
 export const useAuthStore = create(
   persist(
     (set, get) => ({
       user: null,
-      users: [],        // kept for legacy compat — no new customers registered
+      users: [],
       isLoggedIn: false,
 
       login: (email, password) => {
@@ -19,7 +19,29 @@ export const useAuthStore = create(
           set({ user: adminUser, isLoggedIn: true })
           return { success: true }
         }
+        // Customer login by phone or email
+        const customer = get().users.find(
+          u => u.role === 'customer' && (u.email === email || u.phone === email)
+        )
+        if (customer) {
+          set({ user: customer, isLoggedIn: true })
+          return { success: true }
+        }
         return { success: false, message: 'Invalid email or password' }
+      },
+
+      // Register a new customer (called from SignupPopup)
+      addUser: async (userData) => {
+        const newUser = {
+          id: 'USER-' + Date.now(),
+          role: 'customer',
+          createdAt: new Date().toISOString(),
+          ...userData,
+        }
+        set(s => ({ users: [...s.users, newUser], user: newUser, isLoggedIn: true }))
+        // Sync to backend so Admin can see the new customer
+        await api.addUser(newUser)
+        return newUser
       },
 
       logout: () => set({ user: null, isLoggedIn: false }),
@@ -54,6 +76,13 @@ export const useCartStore = create(
           set({ items: items.map(i => i.id === product.id ? { ...i, qty: i.qty + qty } : i) })
         } else {
           set({ items: [...items, { ...product, qty }] })
+        }
+        // Sync cart to backend if a registered user is active
+        const authState = JSON.parse(localStorage.getItem('auth-store') || '{}')
+        const userId = authState?.state?.user?.id
+        if (userId && userId !== 'admin') {
+          const newItems = get().items
+          api.saveCart(userId, newItems).catch(() => {})
         }
       },
 
@@ -102,9 +131,10 @@ export const useAdminStore = create(
       categories: CATEGORIES,
       banners: BANNERS,
       orders: [],
+      activeCarts: [],   // active user carts synced from backend
       siteConfig: {
         logo: null,
-        storeName: 'My Stationery Store',
+        storeName: 'Crifts',
         tagline: 'Return gifts, fancy stationery & hampers',
         announcement: 'Use code FIRST100 on first purchase',
         aboutUs: 'We are a leading stationery and gift store offering premium quality products at affordable prices.',
@@ -142,15 +172,18 @@ export const useAdminStore = create(
 
       // Fetch all data from backend (call on app startup if API configured)
       syncFromBackend: async () => {
-        const [products, orders, config] = await Promise.all([
+        const [products, orders, config, carts] = await Promise.all([
           api.getProducts(),
           api.getOrders(),
           api.getConfig(),
+          api.getCarts(),
         ])
         const update = {}
         if (products?.length) update.products = products
-        if (orders?.length) update.orders = orders
+        // Normalize: backend orders use `orderId`, frontend uses `id`
+        if (orders?.length) update.orders = orders.map(o => ({ ...o, id: o.id || o.orderId }))
         if (config && Object.keys(config).length) update.siteConfig = { ...get().siteConfig, ...config }
+        if (carts?.length) update.activeCarts = carts
         if (Object.keys(update).length) set(update)
       },
 
@@ -198,8 +231,9 @@ export const useAdminStore = create(
       },
 
       updateOrderStatus: async (id, status) => {
-        set(s => ({ orders: s.orders.map(o => o.id === id ? { ...o, status } : o) }))
-        await api.updateOrderStatus(id, status)  // sync to backend (Bug #3)
+        // Support both `id` and `orderId` field names (backend uses orderId)
+        set(s => ({ orders: s.orders.map(o => (o.id === id || o.orderId === id) ? { ...o, status } : o) }))
+        await api.updateOrderStatus(id, status)  // sync to backend
       },
     }),
     { name: 'admin-store' }

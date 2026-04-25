@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Trash2, Plus, Minus, Tag, ArrowRight, ShieldCheck } from 'lucide-react'
+import { Trash2, Plus, Minus, Tag, ArrowRight, ShieldCheck, X } from 'lucide-react'
 import { useCartStore, useAuthStore, useAdminStore } from '../store'
 import { sendOrderNotification } from '../utils/notifications'
 import toast from 'react-hot-toast'
@@ -28,6 +28,11 @@ export default function Cart() {
   const captchaRef = useRef(null)
 
   useEffect(() => { if (step === 'checkout') loadHCaptcha() }, [step])
+
+  useEffect(() => {
+    // If user removes all items during checkout, go back to cart view
+    if (step === 'checkout' && items.length === 0) setStep('cart')
+  }, [items.length, step])
 
   useEffect(() => {
     window.onCaptchaSuccess = () => setCaptchaDone(true)
@@ -216,14 +221,22 @@ export default function Cart() {
             <div style={{ background: '#fff', borderRadius: 12, border: '1px solid var(--border)', padding: 20, marginBottom: 16 }}>
               <h4 style={{ fontWeight: 700, marginBottom: 12 }}>Order Summary</h4>
               {items.map(i => (
-                <div key={i.id} style={{ display: 'flex', gap: 10, marginBottom: 10 }}>
+                <div key={i.id} style={{ display: 'flex', gap: 10, marginBottom: 10, alignItems: 'flex-start' }}>
                   <img src={i.image} style={{ width: 44, height: 44, objectFit: 'cover', borderRadius: 6, flexShrink: 0 }} onError={e => e.target.style.display = 'none'} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ fontSize: 13, fontWeight: 500, lineHeight: 1.3 }}>{i.name}</p>
                     <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>×{i.qty} = ₹{i.price * i.qty}</p>
                   </div>
+                  <button onClick={() => removeItem(i.id)}
+                    title="Remove item"
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--error)', padding: '2px', flexShrink: 0, display: 'flex', alignItems: 'center' }}>
+                    <X size={14} />
+                  </button>
                 </div>
               ))}
+              {items.length === 0 && (
+                <p style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', padding: '12px 0' }}>Cart is empty</p>
+              )}
               <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12, marginTop: 4, display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}>
                 <span>Total</span><span>₹{total}</span>
               </div>

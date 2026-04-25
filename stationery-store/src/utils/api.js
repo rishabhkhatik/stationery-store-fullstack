@@ -35,4 +35,10 @@ export const api = {
 
   getConfig: () => req('GET', '/api/config'),
   saveConfig: (data) => req('POST', '/api/config', data),
+
+  addUser: (data) => req('POST', '/api/users', data),
+  getUsers: () => req('GET', '/api/users'),
+
+  saveCart: (userId, items) => req('POST', `/api/carts/${userId}`, { items }),
+  getCarts: () => req('GET', '/api/carts'),
 }

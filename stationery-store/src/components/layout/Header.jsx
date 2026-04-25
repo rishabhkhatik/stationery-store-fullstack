@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ShoppingCart, Search, User, Menu, X, LogOut, Settings, ChevronDown } from 'lucide-react'
 import { useCartStore, useAuthStore, useAdminStore } from '../../store'
+import SignupPopup from '../ui/SignupPopup'
 import toast from 'react-hot-toast'
 
 export default function Header() {
@@ -14,6 +15,7 @@ export default function Header() {
   const [showSearch, setShowSearch] = useState(false)
   const [mobileMenu, setMobileMenu] = useState(false)
   const [userDropdown, setUserDropdown] = useState(false)
+  const [showSignup, setShowSignup] = useState(false)
   const searchRef = useRef(null)
   const itemCount = items.reduce((s, i) => s + i.qty, 0)
 
@@ -37,8 +39,7 @@ export default function Header() {
 
   const handleCartClick = () => {
     if (!isLoggedIn) {
-      toast.error('Please login to view your cart')
-      navigate('/login?redirect=/cart')
+      setShowSignup(true)
       return
     }
     navigate('/cart')
@@ -53,6 +54,12 @@ export default function Header() {
 
   return (
     <>
+      {showSignup && (
+        <SignupPopup
+          onClose={() => setShowSignup(false)}
+          onSuccess={() => { setShowSignup(false); navigate('/cart') }}
+        />
+      )}
       {siteConfig.announcement && (
         <div style={{ background: 'var(--primary)', color: '#fff', textAlign: 'center', padding: '8px', fontSize: '13px', fontWeight: 500 }}>
           {siteConfig.announcement}
