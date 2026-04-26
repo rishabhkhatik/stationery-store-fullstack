@@ -168,8 +168,8 @@ export default function SignupPopup({ onClose, onSuccess }) {
           </button>
 
           <p style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', marginTop: 12 }}>
-            Already signed up?{' '}
-            <a href="/login" style={{ color: 'var(--primary)', fontWeight: 500 }}>Admin Login</a>
+            Already registered?{' '}
+            <a href="/login" style={{ color: 'var(--primary)', fontWeight: 600 }}>Login with your phone number</a>
           </p>
         </form>
       </div>

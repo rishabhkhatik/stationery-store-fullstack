@@ -19,7 +19,7 @@ export const useAuthStore = create(
           set({ user: adminUser, isLoggedIn: true })
           return { success: true }
         }
-        // Customer login by phone or email
+        // Customer login by phone or email — no password needed
         const customer = get().users.find(
           u => u.role === 'customer' && (u.email === email || u.phone === email)
         )
@@ -27,7 +27,7 @@ export const useAuthStore = create(
           set({ user: customer, isLoggedIn: true })
           return { success: true }
         }
-        return { success: false, message: 'Invalid email or password' }
+        return { success: false, message: 'Account not found. Please sign up first or check your phone number.' }
       },
 
       // Register a new customer (called from SignupPopup)

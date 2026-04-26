@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
-import { Eye, EyeOff, Mail, Lock } from 'lucide-react'
+import { Eye, EyeOff, Mail, Lock, Phone } from 'lucide-react'
 import { useAuthStore } from '../store'
 import toast from 'react-hot-toast'
 
@@ -15,10 +15,17 @@ export default function Auth() {
   const [errors, setErrors] = useState({})
   const [focusedField, setFocusedField] = useState(null)
 
+  // Is the user entering a phone number?
+  const isPhone = /^[6-9]\d{0,9}$/.test(form.email.trim())
+
   const validate = () => {
     const e = {}
-    if (!form.email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) e.email = 'Valid email required'
-    if (form.password.length < 6) e.password = 'Min 6 characters'
+    // Allow phone number OR email
+    const isValidEmail = form.email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)
+    const isValidPhone = /^[6-9]\d{9}$/.test(form.email.trim())
+    if (!isValidEmail && !isValidPhone) e.email = 'Enter a valid email or registered phone number'
+    // Password only required for admin login (email-based)
+    if (isValidEmail && !isPhone && form.password.length < 6) e.password = 'Min 6 characters'
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -45,22 +52,26 @@ export default function Auth() {
       <div style={{ width: '100%', maxWidth: 420, background: '#fff', borderRadius: 16, boxShadow: 'var(--shadow-lg)', padding: '40px 32px' }}>
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <div style={{ fontSize: 40, marginBottom: 8 }}>🛍️</div>
-          <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>Admin Login</h1>
+          <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>Welcome Back</h1>
           <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 6 }}>
-            Enter your credentials to access the admin panel
+            Admin: use your email &amp; password<br />
+            <span style={{ color: 'var(--primary)', fontWeight: 500 }}>Customers: enter your registered phone number — no password needed</span>
           </p>
         </div>
 
         <form onSubmit={handleSubmit}>
-          {/* Email field */}
+          {/* Email / Phone field */}
           <div style={{ marginBottom: 18 }}>
-            <label style={{ fontSize: 13, fontWeight: 500, display: 'block', marginBottom: 6, color: 'var(--text)' }}>Email Address</label>
+              <label style={{ fontSize: 13, fontWeight: 500, display: 'block', marginBottom: 6, color: 'var(--text)' }}>Email or Phone Number</label>
             <div style={{ position: 'relative' }}>
-              <Mail size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+              {isPhone
+                ? <Phone size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                : <Mail size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+              }
               <input
-                type="email"
+                type="text"
                 value={form.email}
-                placeholder="rrsenterprises2026@gmail.com"
+                placeholder="Phone number or admin email"
                 onChange={e => { setForm(p => ({ ...p, email: e.target.value })); setErrors(p => ({ ...p, email: '' })) }}
                 onFocus={() => setFocusedField('email')}
                 onBlur={() => setFocusedField(null)}
@@ -70,7 +81,8 @@ export default function Auth() {
             {errors.email && <p style={{ fontSize: 12, color: 'var(--error)', marginTop: 4 }}>{errors.email}</p>}
           </div>
 
-          {/* Password field */}
+          {/* Password — hidden for phone-based customer login */}
+          {!isPhone && (
           <div style={{ marginBottom: 18 }}>
             <label style={{ fontSize: 13, fontWeight: 500, display: 'block', marginBottom: 6, color: 'var(--text)' }}>Password</label>
             <div style={{ position: 'relative' }}>
@@ -91,6 +103,7 @@ export default function Auth() {
             </div>
             {errors.password && <p style={{ fontSize: 12, color: 'var(--error)', marginTop: 4 }}>{errors.password}</p>}
           </div>
+          )}
 
           <button type="submit" disabled={loading}
             style={{ width: '100%', padding: '13px', background: loading ? '#ccc' : 'var(--primary)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer', transition: 'background 0.2s', marginTop: 8 }}>
