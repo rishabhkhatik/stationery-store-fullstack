@@ -203,6 +203,11 @@ app.put('/api/products/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ error: "Update error: " + err.message }); }
 });
 
+app.delete('/api/products', async (req, res) => {
+  try { await Product.deleteMany({}); res.json({ message: 'All products deleted' }); }
+  catch (err) { res.status(500).json({ error: 'Delete all error: ' + err.message }); }
+});
+
 app.delete('/api/products/:id', async (req, res) => {
   try { await Product.findOneAndDelete({ id: req.params.id }); res.json({ message: "Deleted" }); }
   catch (err) { res.status(500).json({ error: "Delete error" }); }

@@ -247,6 +247,27 @@ export const useAdminStore = create(
         await api.deleteProduct(id)   // sync to backend (Bug #3)
       },
 
+      deleteAllProducts: async () => {
+        set({ products: [] })
+        await api.deleteAllProducts()
+      },
+
+      bulkAddProducts: async (newProducts) => {
+        // Merge with existing — update if id/sku matches, else insert
+        const existing = get().products
+        const merged = [...existing]
+        for (const p of newProducts) {
+          const idx = merged.findIndex(e => e.id === p.id || (p.sku && e.sku === p.sku))
+          if (idx >= 0) merged[idx] = { ...merged[idx], ...p }
+          else merged.unshift(p)
+        }
+        set({ products: merged })
+        // Push each to backend
+        for (const p of newProducts) {
+          await api.addProduct(p).catch(() => {})
+        }
+      },
+
       addCoupon: async (coupon) => {
         const newCoupon = { ...coupon, id: 'CPN-' + Date.now(), active: true }
         const newCoupons = [...get().coupons, newCoupon]

@@ -28,6 +28,7 @@ export const api = {
   addProduct:  (data) => req('POST', '/api/products', data),
   updateProduct: (id, data) => req('PUT', `/api/products/${id}`, data),
   deleteProduct: (id) => req('DELETE', `/api/products/${id}`),
+  deleteAllProducts: () => req('DELETE', '/api/products'),
 
   getOrders: () => req('GET', '/api/orders'),
   addOrder:  (data) => req('POST', '/api/orders', data),

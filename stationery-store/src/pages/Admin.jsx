@@ -184,15 +184,98 @@ function Dashboard() {
 
 // ── Product Manager ──────────────────────────────────────────
 function ProductManager() {
-  const { products, categories, addProduct, updateProduct, deleteProduct } = useAdminStore()
+  const { products, categories, addProduct, updateProduct, deleteProduct, deleteAllProducts, bulkAddProducts } = useAdminStore()
   const [editing, setEditing] = useState(null)
   const [search, setSearch] = useState('')
+  const [showDeleteAll, setShowDeleteAll] = useState(false)
+  const [importErrors, setImportErrors] = useState([])
+  const [importSummary, setImportSummary] = useState(null)
   const empty = { name: '', category: '', price: '', originalPrice: '', discount: 0, description: '', image: '', trending: false, topSelling: true, inStock: true }
   const [form, setForm] = useState(empty)
 
   const filtered = products.filter(p => p.name.toLowerCase().includes(search.toLowerCase()))
   const openEdit = (p) => { setForm({ ...p }); setEditing(p.id) }
   const openAdd = () => { setForm(empty); setEditing('new') }
+
+  // ── Download Template ──────────────────────────────────────
+  const handleDownloadTemplate = () => {
+    import('xlsx').then(XLSX => {
+      const ws = XLSX.utils.aoa_to_sheet([
+        ['Product Name', 'MRP', 'Price', 'Category', 'SKU/ID', 'Description', 'Trending (TRUE/FALSE)', 'Top Selling (TRUE/FALSE)', 'In Stock (TRUE/FALSE)'],
+        ['Sample Product', 200, 150, 'notebook', 'SKU-001', 'A sample product description', 'FALSE', 'TRUE', 'TRUE'],
+      ])
+      // Set column widths
+      ws['!cols'] = [{ wch: 30 }, { wch: 10 }, { wch: 10 }, { wch: 16 }, { wch: 14 }, { wch: 36 }, { wch: 22 }, { wch: 22 }, { wch: 20 }]
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, 'Products')
+      XLSX.writeFile(wb, 'product_import_template.xlsx')
+    })
+  }
+
+  // ── Upload Excel ───────────────────────────────────────────
+  const handleExcelUpload = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    e.target.value = ''
+    const XLSX = await import('xlsx')
+    const data = await file.arrayBuffer()
+    const wb = XLSX.read(data)
+    const ws = wb.Sheets[wb.SheetNames[0]]
+    const rows = XLSX.utils.sheet_to_json(ws, { defval: '' })
+
+    const errors = []
+    const toAdd = []
+
+    rows.forEach((row, i) => {
+      const rowNum = i + 2
+      const name = (row['Product Name'] || '').toString().trim()
+      const mrp  = parseFloat(row['MRP'])
+      const price = parseFloat(row['Price'])
+
+      if (!name)          { errors.push(`Row ${rowNum}: Missing Product Name`); return }
+      if (isNaN(mrp))     { errors.push(`Row ${rowNum}: Missing or invalid MRP`); return }
+      if (isNaN(price))   { errors.push(`Row ${rowNum}: Missing or invalid Price`); return }
+
+      const discount = mrp > price ? Math.round(((mrp - price) / mrp) * 100) : 0
+      const sku = (row['SKU/ID'] || '').toString().trim() || undefined
+      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+      const bool = (v) => {
+        const s = (v || '').toString().toUpperCase().trim()
+        return s === 'TRUE' || s === '1' || s === 'YES'
+      }
+
+      toAdd.push({
+        id: sku ? sku : 'P-' + Date.now() + '-' + i,
+        name,
+        slug,
+        price,
+        originalPrice: mrp,
+        discount,
+        category: (row['Category'] || '').toString().trim().toLowerCase().replace(/\s+/g, '-'),
+        sku: sku || '',
+        description: (row['Description'] || '').toString().trim(),
+        trending: bool(row['Trending (TRUE/FALSE)']),
+        topSelling: bool(row['Top Selling (TRUE/FALSE)']),
+        inStock: row['In Stock (TRUE/FALSE)'] === '' ? true : bool(row['In Stock (TRUE/FALSE)']),
+        image: '',
+        images: [],
+      })
+    })
+
+    if (toAdd.length > 0) {
+      await bulkAddProducts(toAdd)
+      setImportSummary({ added: toAdd.length, skipped: errors.length })
+    }
+    setImportErrors(errors)
+    if (errors.length > 0 && toAdd.length === 0) toast.error(`Import failed — ${errors.length} row(s) had errors`)
+  }
+
+  // ── Delete All (confirmed) ─────────────────────────────────
+  const handleDeleteAll = async () => {
+    await deleteAllProducts()
+    setShowDeleteAll(false)
+    toast.success('All products deleted')
+  }
 
   const handleSave = () => {
     if (!form.name || !form.category || !form.price) { toast.error('Name, category and price are required'); return }
@@ -282,11 +365,66 @@ function ProductManager() {
 
   return (
     <div>
+      {/* ── Confirmation Modal ── */}
+      {showDeleteAll && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: '#fff', borderRadius: 16, padding: 28, maxWidth: 420, width: '100%', textAlign: 'center' }}>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>⚠️</div>
+            <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8, color: '#dc2626' }}>Delete All Products?</h3>
+            <p style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 24 }}>
+              This will <strong>permanently delete all {products.length} products</strong> from the database. This action cannot be undone.
+            </p>
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+              <button onClick={() => setShowDeleteAll(false)} className="btn btn-outline" style={{ flex: 1 }}>Cancel</button>
+              <button onClick={handleDeleteAll} style={{ flex: 1, padding: '10px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700, cursor: 'pointer' }}>
+                Yes, Delete All
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Import Summary ── */}
+      {importSummary && (
+        <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 10, padding: '12px 16px', marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+          <span style={{ fontSize: 14, color: '#15803d', fontWeight: 600 }}>
+            ✅ Import complete — <strong>{importSummary.added}</strong> product(s) added/updated
+            {importSummary.skipped > 0 && `, ${importSummary.skipped} row(s) skipped`}
+          </span>
+          <button onClick={() => { setImportSummary(null); setImportErrors([]) }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: '#15803d' }}>×</button>
+        </div>
+      )}
+      {importErrors.length > 0 && (
+        <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 10, padding: '12px 16px', marginBottom: 16 }}>
+          <p style={{ fontSize: 13, fontWeight: 700, color: '#dc2626', marginBottom: 6 }}>⚠️ {importErrors.length} row(s) skipped due to errors:</p>
+          <ul style={{ margin: 0, paddingLeft: 20 }}>
+            {importErrors.map((e, i) => <li key={i} style={{ fontSize: 12, color: '#b91c1c', marginBottom: 2 }}>{e}</li>)}
+          </ul>
+        </div>
+      )}
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
         <h2 style={{ fontSize: 20, fontWeight: 700 }}>Products ({filtered.length})</h2>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search products..."
-            style={{ padding: '8px 14px', border: '1px solid var(--border)', borderRadius: 8, fontSize: 14, outline: 'none', width: 200 }} />
+            style={{ padding: '8px 14px', border: '1px solid var(--border)', borderRadius: 8, fontSize: 14, outline: 'none', width: 180 }} />
+          {/* Download Template */}
+          <button onClick={handleDownloadTemplate}
+            style={{ padding: '8px 12px', background: '#eff6ff', color: '#2563eb', border: '1.5px solid #bfdbfe', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}>
+            <Download size={13} /> Template
+          </button>
+          {/* Upload Excel */}
+          <label style={{ padding: '8px 12px', background: '#f0fdf4', color: '#16a34a', border: '1.5px solid #86efac', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}>
+            <Upload size={13} /> Upload Excel
+            <input type="file" accept=".xlsx,.xls" onChange={handleExcelUpload} style={{ display: 'none' }} />
+          </label>
+          {/* Delete All */}
+          {products.length > 0 && (
+            <button onClick={() => setShowDeleteAll(true)}
+              style={{ padding: '8px 12px', background: '#fee2e2', color: '#dc2626', border: '1.5px solid #fca5a5', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}>
+              <Trash2 size={13} /> Delete All
+            </button>
+          )}
           <button onClick={openAdd} className="btn btn-primary"><Plus size={14} /> Add Product</button>
         </div>
       </div>
