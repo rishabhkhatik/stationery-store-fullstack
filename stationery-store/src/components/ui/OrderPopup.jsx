@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { X, Upload, CheckCircle, MessageCircle } from 'lucide-react'
+import { X, Upload, CheckCircle, MessageCircle, Package } from 'lucide-react'
 import { useAdminStore } from '../../store'
 import { sendWhatsAppNotification } from '../../utils/notifications'
 import toast from 'react-hot-toast'
@@ -211,10 +211,10 @@ export default function OrderPopup({ product, quantity = 1, onClose }) {
           {/* STEP 3: Done */}
           {step === 'done' && (
             <div style={{ textAlign: 'center', padding: '16px 0' }}>
-              <div style={{ fontSize: 56, marginBottom: 12 }}>🎉</div>
-              <h3 style={{ fontWeight: 700, fontSize: 20, marginBottom: 8, color: 'var(--success)' }}>Thank You!</h3>
+              <div style={{ fontSize: 56, marginBottom: 12, animation: 'bounceIn 0.5s' }}>🎉</div>
+              <h3 style={{ fontWeight: 700, fontSize: 20, marginBottom: 8, color: 'var(--success)' }}>Order Placed Successfully!</h3>
               <p style={{ color: 'var(--text-muted)', fontSize: 14, marginBottom: 20 }}>
-                Your order has been placed successfully. We will contact you on <strong>{form.phone}</strong> shortly.
+                We will contact you on <strong>{form.phone}</strong> shortly.
               </p>
               <div style={{ background: 'var(--bg-secondary)', borderRadius: 10, padding: '14px 16px', textAlign: 'left', marginBottom: 20, fontSize: 14 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
@@ -230,15 +230,19 @@ export default function OrderPopup({ product, quantity = 1, onClose }) {
                   <span style={{ fontWeight: 700, color: 'var(--primary)' }}>₹{total}</span>
                 </div>
               </div>
+              {/* Track Order */}
+              <a href="/orders"
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: 'var(--primary)', color: '#fff', padding: '12px 20px', borderRadius: 10, fontSize: 14, fontWeight: 700, textDecoration: 'none', marginBottom: 12 }}>
+                <Package size={16} /> Track My Order
+              </a>
               {siteConfig.whatsappNumber && (
                 <a href={`https://wa.me/${siteConfig.whatsappNumber}`} target="_blank" rel="noreferrer"
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#25d366', color: '#fff', padding: '10px 20px', borderRadius: 30, fontSize: 14, fontWeight: 600, textDecoration: 'none', marginBottom: 12 }}>
-                  <MessageCircle size={16} /> Contact us on WhatsApp
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, background: '#25d366', color: '#fff', padding: '10px 20px', borderRadius: 10, fontSize: 14, fontWeight: 600, textDecoration: 'none', marginBottom: 12 }}>
+                  <MessageCircle size={16} /> Contact on WhatsApp
                 </a>
               )}
-              <br />
               <button onClick={onClose}
-                style={{ background: 'none', border: '1px solid var(--border)', padding: '8px 24px', borderRadius: 8, cursor: 'pointer', fontSize: 14 }}>
+                style={{ background: 'none', border: '1px solid var(--border)', padding: '8px 24px', borderRadius: 8, cursor: 'pointer', fontSize: 14, width: '100%' }}>
                 Close
               </button>
             </div>

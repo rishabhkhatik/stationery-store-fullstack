@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import Header from './components/layout/Header'
 import Footer from './components/layout/Footer'
@@ -15,6 +15,13 @@ import AdminPanel from './pages/Admin'
 import { ContactPage, OrdersPage, TermsPage, PrivacyPage, RefundPage, ShippingPage } from './pages/OtherPages'
 import ResetPassword from './pages/ResetPassword'
 import { useAuthStore, useAdminStore } from './store'
+
+// Scroll to top on every route change
+function ScrollToTop() {
+  const { pathname } = useLocation()
+  useEffect(() => { window.scrollTo({ top: 0, left: 0, behavior: 'instant' }) }, [pathname])
+  return null
+}
 
 function ProtectedRoute({ children, adminOnly = false }) {
   const { isLoggedIn, user } = useAuthStore()
@@ -42,6 +49,7 @@ export default function App() {
 
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <Toaster position="top-right" toastOptions={{ className: 'hot-toast', duration: 3000 }} />
       <Routes>
         <Route path="/admin/*" element={<ProtectedRoute adminOnly><AdminPanel /></ProtectedRoute>} />

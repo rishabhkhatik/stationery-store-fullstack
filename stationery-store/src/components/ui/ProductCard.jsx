@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import { ShoppingCart, Star, Heart, Zap, Plus, Minus } from 'lucide-react'
 import { useCartStore, useAuthStore } from '../../store'
@@ -124,11 +125,13 @@ export default function ProductCard({ product }) {
         </div>
       </Link>
 
-      {showOrderPopup && (
-        <OrderPopup product={product} onClose={() => setShowOrderPopup(false)} />
+      {showOrderPopup && createPortal(
+        <OrderPopup product={product} onClose={() => setShowOrderPopup(false)} />,
+        document.body
       )}
-      {showSignup && (
-        <SignupPopup onClose={() => setShowSignup(false)} onSuccess={handleSignupSuccess} />
+      {showSignup && createPortal(
+        <SignupPopup onClose={() => setShowSignup(false)} onSuccess={handleSignupSuccess} />,
+        document.body
       )}
     </>
   )

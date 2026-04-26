@@ -6,6 +6,7 @@ import {
   TrendingUp, Award, Download, Check, AlertCircle, Lock, QrCode
 } from 'lucide-react'
 import { useAdminStore, useAuthStore } from '../store'
+import ImageCropper from '../components/ui/ImageCropper'
 import toast from 'react-hot-toast'
 
 const NAV_ITEMS = [
@@ -190,6 +191,7 @@ function ProductManager() {
   const [showDeleteAll, setShowDeleteAll] = useState(false)
   const [importErrors, setImportErrors] = useState([])
   const [importSummary, setImportSummary] = useState(null)
+  const [cropSrc, setCropSrc] = useState(null)   // Phase 3: image to crop
   const empty = { name: '', category: '', price: '', originalPrice: '', discount: 0, description: '', image: '', trending: false, topSelling: true, inStock: true }
   const [form, setForm] = useState(empty)
 
@@ -290,14 +292,16 @@ function ProductManager() {
 
   const handleImageUpload = (e) => {
     const file = e.target.files[0]; if (!file) return
+    // Phase 3: open cropper instead of directly setting
     const reader = new FileReader()
-    reader.onload = (ev) => setForm(p => ({ ...p, image: ev.target.result }))
+    reader.onload = (ev) => { setCropSrc(ev.target.result); e.target.value = '' }
     reader.readAsDataURL(file)
   }
 
   if (editing !== null) {
     return (
-      <div>
+      <>
+        <div>
         <button onClick={() => setEditing(null)} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', marginBottom: 16 }}>← Back</button>
         <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 20 }}>{editing === 'new' ? 'Add Product' : 'Edit Product'}</h2>
         <div style={{ background: '#fff', borderRadius: 12, padding: 24, boxShadow: '0 1px 6px rgba(0,0,0,0.06)', maxWidth: 700 }}>
@@ -360,6 +364,15 @@ function ProductManager() {
           </div>
         </div>
       </div>
+
+      {cropSrc && (
+        <ImageCropper
+          imageSrc={cropSrc}
+          onCropDone={(croppedUrl) => { setForm(p => ({ ...p, image: croppedUrl })); setCropSrc(null); toast.success('Image cropped!') }}
+          onCancel={() => setCropSrc(null)}
+        />
+      )}
+      </>
     )
   }
 
