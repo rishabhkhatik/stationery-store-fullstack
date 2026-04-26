@@ -50,6 +50,8 @@ export const useAuthStore = create(
         const user = get().user
         if (data.role === 'admin' && data.password) {
           localStorage.setItem('admin-pw', data.password)
+          // Persist to MongoDB so it survives browser/device changes
+          api.saveConfig({ adminPassword: data.password }).catch(() => {})
         }
         if (!data.id || data.id === user?.id) {
           set({ user: { ...user, ...data } })
@@ -205,8 +207,12 @@ export const useAdminStore = create(
         // Normalize: backend orders use `orderId`, frontend uses `id`
         if (orders?.length) update.orders = orders.map(o => ({ ...o, id: o.id || o.orderId }))
         if (config && Object.keys(config).length) {
-          // Separate coupons from siteConfig to avoid polluting it
-          const { coupons: savedCoupons, ...restConfig } = config
+          // Restore admin password from MongoDB so it works across all devices/browsers
+          if (config.adminPassword) {
+            localStorage.setItem('admin-pw', config.adminPassword)
+          }
+          // Separate coupons & adminPassword from siteConfig to avoid polluting it
+          const { coupons: savedCoupons, adminPassword: _pw, ...restConfig } = config
           if (savedCoupons) update.coupons = savedCoupons
           if (Object.keys(restConfig).length) update.siteConfig = { ...get().siteConfig, ...restConfig }
         }

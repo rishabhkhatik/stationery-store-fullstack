@@ -32,9 +32,13 @@ function ForgotPasswordForm() {
       toast.error('Please enter a valid email'); return
     }
     setLoading(true)
-    await api.forgotPassword(email)
-    setSent(true)
+    const result = await api.forgotPassword(email)
     setLoading(false)
+    if (!result) {
+      toast.error('Could not reach the server. Please check your backend is running and VITE_API_URL is set.')
+      return
+    }
+    setSent(true)
   }
 
   if (sent) {
