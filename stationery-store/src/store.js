@@ -14,7 +14,7 @@ export const useAuthStore = create(
 
       login: (email, password) => {
         const storedPw = localStorage.getItem('admin-pw') || 'admin123'
-        if (email === 'admin@store.com' && password === storedPw) {
+        if (email === 'rrsenterprises2026@gmail.com' && password === storedPw) {
           const adminUser = { id: 'admin', name: 'Admin', email, role: 'admin', password }
           set({ user: adminUser, isLoggedIn: true })
           return { success: true }
@@ -68,6 +68,7 @@ export const useCartStore = create(
       promoCode: null,
       promoDiscount: 0,
       promoType: null,
+      promoMaxDiscount: null,
 
       addItem: (product, qty = 1) => {
         const items = get().items
@@ -79,38 +80,58 @@ export const useCartStore = create(
         }
         // Sync cart to backend if a registered user is active
         const authState = JSON.parse(localStorage.getItem('auth-store') || '{}')
-        const userId = authState?.state?.user?.id
+        const activeUser = authState?.state?.user
+        const userId = activeUser?.id
         if (userId && userId !== 'admin') {
           const newItems = get().items
           api.saveCart(userId, newItems).catch(() => {})
+          // Email notification to owner when item added to cart
+          api.notifyCartAdd(product, activeUser).catch(() => {})
         }
       },
 
-      removeItem: (id) => set({ items: get().items.filter(i => i.id !== id) }),
+      removeItem: (id) => {
+        const newItems = get().items.filter(i => i.id !== id)
+        const update = { items: newItems }
+        // Auto-clear coupon when cart becomes empty
+        if (newItems.length === 0) {
+          update.promoCode = null; update.promoDiscount = 0
+          update.promoType = null; update.promoMaxDiscount = null
+        }
+        set(update)
+      },
 
       updateQty: (id, qty) => {
         if (qty < 1) { get().removeItem(id); return }
         set({ items: get().items.map(i => i.id === id ? { ...i, qty } : i) })
       },
 
-      clearCart: () => set({ items: [], promoCode: null, promoDiscount: 0, promoType: null }),
+      clearCart: () => set({ items: [], promoCode: null, promoDiscount: 0, promoType: null, promoMaxDiscount: null }),
 
-      applyPromo: (code) => {
-        const PROMOS = {
-          'FIRST100': { type: 'percent', value: 10 },
-          'SAVE50': { type: 'flat', value: 50 },
+      clearCoupon: () => set({ promoCode: null, promoDiscount: 0, promoType: null, promoMaxDiscount: null }),
+
+      applyPromo: (code, dynamicCoupons = []) => {
+        const STATIC_PROMOS = {
+          'FIRST100': { type: 'percent', value: 10, maxDiscount: null },
+          'SAVE50': { type: 'flat', value: 50, maxDiscount: null },
         }
-        const promo = PROMOS[code.toUpperCase()]
+        const upper = (code || '').toUpperCase()
+        const staticPromo = STATIC_PROMOS[upper]
+        const dynPromo = dynamicCoupons.find(c => c.code === upper && c.active !== false)
+        const promo = staticPromo || (dynPromo ? { type: dynPromo.type, value: dynPromo.value, maxDiscount: dynPromo.maxDiscount || null } : null)
         if (!promo) return { success: false, message: 'Invalid promo code' }
-        set({ promoCode: code.toUpperCase(), promoDiscount: promo.value, promoType: promo.type })
+        set({ promoCode: upper, promoDiscount: promo.value, promoType: promo.type, promoMaxDiscount: promo.maxDiscount || null })
         return { success: true }
       },
 
       getTotal: () => {
-        const { items, promoDiscount, promoType } = get()
+        const { items, promoDiscount, promoType, promoMaxDiscount } = get()
         const subtotal = items.reduce((s, i) => s + i.price * i.qty, 0)
         let discount = 0
-        if (promoType === 'percent') discount = Math.round(subtotal * promoDiscount / 100)
+        if (promoType === 'percent') {
+          discount = Math.round(subtotal * promoDiscount / 100)
+          if (promoMaxDiscount) discount = Math.min(discount, promoMaxDiscount)
+        }
         if (promoType === 'flat') discount = Math.min(promoDiscount, subtotal)
         return { subtotal, discount, total: subtotal - discount }
       },
@@ -131,6 +152,7 @@ export const useAdminStore = create(
       categories: CATEGORIES,
       banners: BANNERS,
       orders: [],
+      coupons: [],
       activeCarts: [],   // active user carts synced from backend
       siteConfig: {
         logo: null,
@@ -182,7 +204,12 @@ export const useAdminStore = create(
         if (products?.length) update.products = products
         // Normalize: backend orders use `orderId`, frontend uses `id`
         if (orders?.length) update.orders = orders.map(o => ({ ...o, id: o.id || o.orderId }))
-        if (config && Object.keys(config).length) update.siteConfig = { ...get().siteConfig, ...config }
+        if (config && Object.keys(config).length) {
+          // Separate coupons from siteConfig to avoid polluting it
+          const { coupons: savedCoupons, ...restConfig } = config
+          if (savedCoupons) update.coupons = savedCoupons
+          if (Object.keys(restConfig).length) update.siteConfig = { ...get().siteConfig, ...restConfig }
+        }
         if (carts?.length) update.activeCarts = carts
         if (Object.keys(update).length) set(update)
       },
@@ -212,6 +239,25 @@ export const useAdminStore = create(
       deleteProduct: async (id) => {
         set(s => ({ products: s.products.filter(p => p.id !== id) }))
         await api.deleteProduct(id)   // sync to backend (Bug #3)
+      },
+
+      addCoupon: async (coupon) => {
+        const newCoupon = { ...coupon, id: 'CPN-' + Date.now(), active: true }
+        const newCoupons = [...get().coupons, newCoupon]
+        set({ coupons: newCoupons })
+        await api.saveConfig({ coupons: newCoupons })
+      },
+
+      deleteCoupon: async (id) => {
+        const newCoupons = get().coupons.filter(c => c.id !== id)
+        set({ coupons: newCoupons })
+        await api.saveConfig({ coupons: newCoupons })
+      },
+
+      toggleCoupon: async (id) => {
+        const newCoupons = get().coupons.map(c => c.id === id ? { ...c, active: c.active === false } : c)
+        set({ coupons: newCoupons })
+        await api.saveConfig({ coupons: newCoupons })
       },
 
       addCategory: (cat) => {

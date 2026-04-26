@@ -1,29 +1,34 @@
 import React, { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { ShoppingCart, Star, Heart, Zap } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { ShoppingCart, Star, Heart, Zap, Plus, Minus } from 'lucide-react'
 import { useCartStore, useAuthStore } from '../../store'
 import OrderPopup from './OrderPopup'
+import SignupPopup from './SignupPopup'
 import toast from 'react-hot-toast'
 
 export default function ProductCard({ product }) {
-  const { addItem } = useCartStore()
+  const { addItem, items, updateQty, removeItem } = useCartStore()
   const { isLoggedIn } = useAuthStore()
-  const navigate = useNavigate()
-  const [adding, setAdding] = useState(false)
   const [wishlist, setWishlist] = useState(false)
   const [showOrderPopup, setShowOrderPopup] = useState(false)
+  const [showSignup, setShowSignup] = useState(false)
+
+  const cartItem = items.find(i => i.id === product.id)
 
   const handleAddToCart = (e) => {
     e.preventDefault(); e.stopPropagation()
     if (!isLoggedIn) {
-      toast.error('Please login to add items to cart')
-      navigate('/login?redirect=' + window.location.pathname)
+      setShowSignup(true)
       return
     }
-    setAdding(true)
     addItem(product)
     toast.success(`${product.name} added to cart!`)
-    setTimeout(() => setAdding(false), 600)
+  }
+
+  const handleSignupSuccess = () => {
+    setShowSignup(false)
+    addItem(product)
+    toast.success(`${product.name} added to cart!`)
   }
 
   const handleOrderNow = (e) => {
@@ -85,13 +90,30 @@ export default function ProductCard({ product }) {
               )}
             </div>
 
-            {/* Two buttons: Add to Cart + Order Now */}
+            {/* Cart button (or Qty selector if already in cart) + Order Now */}
             <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
-              <button onClick={handleAddToCart}
-                style={{ flex: 1, padding: '7px 8px', background: adding ? 'var(--success)' : 'var(--primary)', color: '#fff', borderRadius: 8, fontSize: 12, fontWeight: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, transition: 'background 0.2s', border: 'none', cursor: 'pointer' }}>
-                <ShoppingCart size={12} />
-                {adding ? 'Added!' : 'Cart'}
-              </button>
+              {cartItem ? (
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', border: '1.5px solid var(--primary)', borderRadius: 8, overflow: 'hidden', height: 30 }}
+                  onClick={e => { e.preventDefault(); e.stopPropagation() }}>
+                  <button
+                    onClick={e => { e.preventDefault(); e.stopPropagation(); cartItem.qty <= 1 ? removeItem(product.id) : updateQty(product.id, cartItem.qty - 1) }}
+                    style={{ flex: 1, height: '100%', background: 'var(--primary)', color: '#fff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Minus size={11} />
+                  </button>
+                  <span style={{ flex: 1, textAlign: 'center', fontSize: 13, fontWeight: 700, color: 'var(--primary)' }}>{cartItem.qty}</span>
+                  <button
+                    onClick={e => { e.preventDefault(); e.stopPropagation(); updateQty(product.id, cartItem.qty + 1) }}
+                    style={{ flex: 1, height: '100%', background: 'var(--primary)', color: '#fff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Plus size={11} />
+                  </button>
+                </div>
+              ) : (
+                <button onClick={handleAddToCart}
+                  style={{ flex: 1, padding: '7px 8px', background: 'var(--primary)', color: '#fff', borderRadius: 8, fontSize: 12, fontWeight: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, border: 'none', cursor: 'pointer' }}>
+                  <ShoppingCart size={12} />
+                  Cart
+                </button>
+              )}
               <button onClick={handleOrderNow}
                 style={{ flex: 1, padding: '7px 8px', background: '#fff7ed', color: '#ea580c', border: '1.5px solid #fed7aa', borderRadius: 8, fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, cursor: 'pointer' }}>
                 <Zap size={12} />
@@ -104,6 +126,9 @@ export default function ProductCard({ product }) {
 
       {showOrderPopup && (
         <OrderPopup product={product} onClose={() => setShowOrderPopup(false)} />
+      )}
+      {showSignup && (
+        <SignupPopup onClose={() => setShowSignup(false)} onSuccess={handleSignupSuccess} />
       )}
     </>
   )

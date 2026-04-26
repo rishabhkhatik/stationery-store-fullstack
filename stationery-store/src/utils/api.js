@@ -41,4 +41,14 @@ export const api = {
 
   saveCart: (userId, items) => req('POST', `/api/carts/${userId}`, { items }),
   getCarts: () => req('GET', '/api/carts'),
+
+  verifyCaptcha: (token) => req('POST', '/api/verify-captcha', { token }),
+
+  // Email notifications via Nodemailer (backend)
+  notifyCartAdd: (product, user) => req('POST', '/api/notify', { type: 'cart', product, user }),
+  notifyOrder:   (order) => req('POST', '/api/notify', { type: 'order', order }),
+
+  // Password reset
+  forgotPassword: (email) => req('POST', '/api/forgot-password', { email }),
+  resetPassword:  (token) => req('POST', '/api/reset-password', { token }),
 }

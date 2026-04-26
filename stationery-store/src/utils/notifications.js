@@ -1,6 +1,9 @@
 // ── Free Order Notification Methods ──────────────────────────
 // 1. WhatsApp via wa.me  — 100% free, no account, no API key
 // 2. EmailJS free tier   — 200 emails/month, no backend needed
+// 3. Nodemailer (backend) — Gmail App Password, real-time email
+
+import { api } from './api'
 
 export const sendOrderNotification = async (order, siteConfig) => {
   const { notifyWhatsapp, notifyEmail, whatsappNumber } = siteConfig
@@ -12,6 +15,9 @@ export const sendOrderNotification = async (order, siteConfig) => {
   if (notifyEmail) {
     await sendEmailNotification(order, siteConfig)
   }
+
+  // Always send via Nodemailer backend (if API is configured)
+  api.notifyOrder(order).catch(() => {})
 }
 
 export const sendWhatsAppNotification = (order, whatsappNumber) => {

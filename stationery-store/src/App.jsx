@@ -13,6 +13,7 @@ import SearchResults from './pages/SearchResults'
 import AboutUs from './pages/AboutUs'
 import AdminPanel from './pages/Admin'
 import { ContactPage, OrdersPage, TermsPage, PrivacyPage, RefundPage, ShippingPage } from './pages/OtherPages'
+import ResetPassword from './pages/ResetPassword'
 import { useAuthStore, useAdminStore } from './store'
 
 function ProtectedRoute({ children, adminOnly = false }) {
@@ -47,6 +48,8 @@ export default function App() {
 
         <Route path="/" element={<Layout><Home /></Layout>} />
         <Route path="/login" element={<Layout noFooter><Auth /></Layout>} />
+        <Route path="/forgot-password" element={<Layout noFooter><ResetPassword /></Layout>} />
+        <Route path="/reset-password" element={<Layout noFooter><ResetPassword /></Layout>} />
         {/* Bug #1: Registration removed — redirect to login */}
         <Route path="/register" element={<Navigate to="/login" replace />} />
         <Route path="/categories" element={<Layout><Categories /></Layout>} />

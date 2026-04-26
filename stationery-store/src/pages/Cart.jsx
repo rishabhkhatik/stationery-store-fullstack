@@ -1,49 +1,44 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Trash2, Plus, Minus, Tag, ArrowRight, ShieldCheck, X } from 'lucide-react'
 import { useCartStore, useAuthStore, useAdminStore } from '../store'
 import { sendOrderNotification } from '../utils/notifications'
+import { api } from '../utils/api'
 import toast from 'react-hot-toast'
 
-function loadHCaptcha() {
-  if (document.getElementById('hcaptcha-script')) return
+const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI'
+
+function loadRecaptcha() {
+  if (document.getElementById('recaptcha-script')) return
   const s = document.createElement('script')
-  s.id = 'hcaptcha-script'
-  s.src = 'https://js.hcaptcha.com/1/api.js'
-  s.async = true; s.defer = true
+  s.id = 'recaptcha-script'
+  s.src = `https://www.google.com/recaptcha/api.js?render=${RECAPTCHA_SITE_KEY}`
+  s.async = true
   document.head.appendChild(s)
 }
 
 export default function Cart() {
   const { items, removeItem, updateQty, clearCart, applyPromo, promoCode, getTotal } = useCartStore()
   const { user } = useAuthStore()
-  const { addOrder, siteConfig } = useAdminStore()
+  const { addOrder, siteConfig, coupons } = useAdminStore()
   const navigate = useNavigate()
   const [promo, setPromo] = useState('')
   const [step, setStep] = useState('cart')
   const [orderData, setOrderData] = useState(null)
   const [form, setForm] = useState({ name: user?.name || '', email: user?.email || '', phone: user?.phone || '', address: '', city: '', pincode: '', notes: '' })
   const [placing, setPlacing] = useState(false)
-  const [captchaDone, setCaptchaDone] = useState(false)
-  const captchaRef = useRef(null)
 
-  useEffect(() => { if (step === 'checkout') loadHCaptcha() }, [step])
+  useEffect(() => { loadRecaptcha() }, [])
 
   useEffect(() => {
     // If user removes all items during checkout, go back to cart view
     if (step === 'checkout' && items.length === 0) setStep('cart')
   }, [items.length, step])
 
-  useEffect(() => {
-    window.onCaptchaSuccess = () => setCaptchaDone(true)
-    window.onCaptchaExpire = () => setCaptchaDone(false)
-    return () => { delete window.onCaptchaSuccess; delete window.onCaptchaExpire }
-  }, [])
-
   const { subtotal, discount, total } = getTotal()
 
   const handlePromo = () => {
-    const result = applyPromo(promo)
+    const result = applyPromo(promo, coupons || [])
     if (result.success) toast.success('Promo code applied!')
     else toast.error(result.message)
   }
@@ -52,8 +47,25 @@ export default function Cart() {
     if (!form.name || !form.phone || !form.address || !form.city || !form.pincode) {
       toast.error('Please fill all required fields'); return
     }
-    if (!captchaDone) { toast.error('Please complete the security check'); return }
     setPlacing(true)
+    try {
+      const token = await new Promise((resolve, reject) => {
+        if (!window.grecaptcha) { reject(new Error('reCAPTCHA not loaded')); return }
+        window.grecaptcha.ready(() => {
+          window.grecaptcha.execute(RECAPTCHA_SITE_KEY, { action: 'checkout' }).then(resolve).catch(reject)
+        })
+      })
+      const captchaResult = await api.verifyCaptcha(token)
+      if (!captchaResult?.success) {
+        toast.error('Security check failed. Please try again.')
+        setPlacing(false)
+        return
+      }
+    } catch {
+      toast.error('Security verification failed. Please refresh and try again.')
+      setPlacing(false)
+      return
+    }
     const order = {
       id: 'ORD-' + Date.now(),
       items: [...items],
@@ -163,7 +175,7 @@ export default function Cart() {
                     <Tag size={14} />
                   </button>
                 </div>
-                <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Try: FIRST100 or SAVE50</p>
+
               </div>
             )}
             <button onClick={() => setStep('checkout')} className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '12px' }}>
@@ -203,16 +215,15 @@ export default function Cart() {
                 <ShieldCheck size={16} color="var(--success)" />
                 <span style={{ fontSize: 13, fontWeight: 500 }}>Security Verification</span>
               </div>
-              <div ref={captchaRef} className="h-captcha"
-                data-sitekey="10000000-ffff-ffff-ffff-000000000001"
-                data-callback="onCaptchaSuccess"
-                data-expired-callback="onCaptchaExpire"
-                data-theme="light" />
-              {captchaDone && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, color: 'var(--success)', fontSize: 13, fontWeight: 500 }}>
-                  <ShieldCheck size={14} /> Verified!
-                </div>
-              )}
+              <p style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+                This checkout is protected by reCAPTCHA v3. Verification runs automatically when you place your order.
+              </p>
+              <p style={{ fontSize: 11, color: '#aaa', marginTop: 6 }}>
+                Protected by reCAPTCHA —{' '}
+                <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" style={{ color: '#aaa' }}>Privacy Policy</a>
+                {' & '}
+                <a href="https://policies.google.com/terms" target="_blank" rel="noopener noreferrer" style={{ color: '#aaa' }}>Terms</a>
+              </p>
             </div>
           </div>
 

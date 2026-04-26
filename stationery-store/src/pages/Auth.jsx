@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { Eye, EyeOff, Mail, Lock } from 'lucide-react'
 import { useAuthStore } from '../store'
 import toast from 'react-hot-toast'
@@ -60,7 +60,7 @@ export default function Auth() {
               <input
                 type="email"
                 value={form.email}
-                placeholder="admin@store.com"
+                placeholder="rrsenterprises2026@gmail.com"
                 onChange={e => { setForm(p => ({ ...p, email: e.target.value })); setErrors(p => ({ ...p, email: '' })) }}
                 onFocus={() => setFocusedField('email')}
                 onBlur={() => setFocusedField(null)}
@@ -97,6 +97,12 @@ export default function Auth() {
             {loading ? 'Signing in…' : 'Login'}
           </button>
         </form>
+
+        <div style={{ textAlign: 'center', marginTop: 16 }}>
+          <Link to="/forgot-password" style={{ fontSize: 13, color: 'var(--text-muted)', textDecoration: 'none' }}>
+            Forgot password?
+          </Link>
+        </div>
       </div>
     </div>
   )

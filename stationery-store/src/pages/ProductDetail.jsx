@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom'
 import { ShoppingCart, Star, ChevronLeft, ChevronRight, Share2, Heart } from 'lucide-react'
 import { useAdminStore, useCartStore, useAuthStore } from '../store'
 import ProductCard from '../components/ui/ProductCard'
+import SignupPopup from '../components/ui/SignupPopup'
 import toast from 'react-hot-toast'
 
 export default function ProductDetail() {
@@ -15,6 +16,8 @@ export default function ProductDetail() {
   const [qty, setQty] = useState(1)
   const [activeImg, setActiveImg] = useState(0)
   const [wishlist, setWishlist] = useState(false)
+  const [showSignup, setShowSignup] = useState(false)
+  const [pendingAction, setPendingAction] = useState(null)
 
   if (!product) return (
     <div style={{ textAlign: 'center', padding: '80px 20px' }}>
@@ -28,8 +31,8 @@ export default function ProductDetail() {
 
   const handleAddToCart = () => {
     if (!isLoggedIn) {
-      toast.error('Please login to add to cart')
-      navigate('/login?redirect=/product/' + slug)
+      setPendingAction('cart')
+      setShowSignup(true)
       return
     }
     addItem(product, qty)
@@ -38,12 +41,24 @@ export default function ProductDetail() {
 
   const handleBuyNow = () => {
     if (!isLoggedIn) {
-      toast.error('Please login to continue')
-      navigate('/login?redirect=/product/' + slug)
+      setPendingAction('buynow')
+      setShowSignup(true)
       return
     }
     addItem(product, qty)
     navigate('/cart')
+  }
+
+  const handleSignupSuccess = () => {
+    setShowSignup(false)
+    if (pendingAction === 'cart') {
+      addItem(product, qty)
+      toast.success(`${product.name} added to cart!`)
+    } else if (pendingAction === 'buynow') {
+      addItem(product, qty)
+      navigate('/cart')
+    }
+    setPendingAction(null)
   }
 
   return (
@@ -166,6 +181,10 @@ export default function ProductDetail() {
             {related.map(p => <ProductCard key={p.id} product={p} />)}
           </div>
         </section>
+      )}
+
+      {showSignup && (
+        <SignupPopup onClose={() => { setShowSignup(false); setPendingAction(null) }} onSuccess={handleSignupSuccess} />
       )}
 
       <style>{`

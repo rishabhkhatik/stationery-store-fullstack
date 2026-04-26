@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'products',  label: 'Products',  icon: Package },
   { id: 'categories',label: 'Categories',icon: Tag },
+  { id: 'coupons',   label: 'Coupons',   icon: Tag },
   { id: 'banners',   label: 'Banners',   icon: Image },
   { id: 'orders',    label: 'Orders',    icon: ShoppingBag },
   { id: 'users',     label: 'Users',     icon: Users },
@@ -111,6 +112,7 @@ export default function AdminPanel() {
           {tab === 'dashboard'  && <Dashboard />}
           {tab === 'products'   && <ProductManager />}
           {tab === 'categories' && <CategoryManager />}
+          {tab === 'coupons'    && <CouponManager />}
           {tab === 'banners'    && <BannerManager />}
           {tab === 'orders'     && <OrderManager />}
           {tab === 'users'      && <UserManager />}
@@ -194,7 +196,10 @@ function ProductManager() {
 
   const handleSave = () => {
     if (!form.name || !form.category || !form.price) { toast.error('Name, category and price are required'); return }
-    const data = { ...form, price: +form.price, originalPrice: form.originalPrice ? +form.originalPrice : null, discount: +form.discount || 0, slug: form.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') }
+    const price = +form.price
+    const mrp = form.originalPrice ? +form.originalPrice : null
+    const discount = (mrp && mrp > price) ? Math.round(((mrp - price) / mrp) * 100) : 0
+    const data = { ...form, price, originalPrice: mrp, discount, slug: form.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') }
     if (editing === 'new') { addProduct(data); toast.success('Product added!') }
     else { updateProduct(editing, data); toast.success('Product updated!') }
     setEditing(null)
@@ -223,8 +228,15 @@ function ProductManager() {
               </select>
             </div>
             <FormField label="Price (₹) *" type="number" value={form.price} onChange={v => setForm(p => ({ ...p, price: v }))} />
-            <FormField label="Original Price (₹)" type="number" value={form.originalPrice || ''} onChange={v => setForm(p => ({ ...p, originalPrice: v }))} />
-            <FormField label="Discount %" type="number" value={form.discount} onChange={v => setForm(p => ({ ...p, discount: v }))} />
+            <FormField label="MRP (₹)" type="number" value={form.originalPrice || ''} onChange={v => setForm(p => ({ ...p, originalPrice: v }))} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, fontSize: 13, color: '#166534' }}>
+              <span>🏷️ Auto Discount:</span>
+              <strong>
+                {form.originalPrice && form.price && +form.originalPrice > +form.price
+                  ? `${Math.round(((+form.originalPrice - +form.price) / +form.originalPrice) * 100)}% OFF`
+                  : 'Set MRP > Price to calculate'}
+              </strong>
+            </div>
             <FormField label="SKU / ID" value={form.sku || ''} onChange={v => setForm(p => ({ ...p, sku: v }))} />
           </div>
           <div style={{ marginTop: 16 }}>
@@ -783,7 +795,7 @@ function SiteSettings() {
   const { updateUser, user } = useAuthStore()
   const [form, setForm] = useState({ ...siteConfig })
   const [saved, setSaved] = useState(false)
-  const [pwForm, setPwForm] = useState({ current: '', newPw: '', confirm: '' })
+  const [pwForm, setPwForm] = useState({ newPw: '', confirm: '' })
   const [pwError, setPwError] = useState('')
   const [showPw, setShowPw] = useState(false)
 
@@ -809,13 +821,11 @@ function SiteSettings() {
 
   const handleChangePassword = () => {
     setPwError('')
-    const currentStoredPw = localStorage.getItem('admin-pw') || 'admin123'
-    if (pwForm.current !== currentStoredPw) { setPwError('Current password is incorrect'); return }
     if (pwForm.newPw.length < 6) { setPwError('Min 6 characters'); return }
     if (pwForm.newPw !== pwForm.confirm) { setPwError('Passwords do not match'); return }
     localStorage.setItem('admin-pw', pwForm.newPw)
     updateUser({ id: 'admin', role: 'admin', password: pwForm.newPw })
-    setPwForm({ current: '', newPw: '', confirm: '' })
+    setPwForm({ newPw: '', confirm: '' })
     toast.success('Password changed! Use the new password on next login.')
   }
 
@@ -925,8 +935,8 @@ function SiteSettings() {
         {/* Change Password */}
         <div style={{ background: '#fff', borderRadius: 12, padding: 20, boxShadow: '0 1px 6px rgba(0,0,0,0.06)' }}>
           <h3 style={{ fontWeight: 700, marginBottom: 8, fontSize: 15 }}>🔐 Change Admin Password</h3>
-          <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 16 }}>Default: admin123 — change after first login.</p>
-          {[{ key: 'current', label: 'Current Password' }, { key: 'newPw', label: 'New Password (min 6)' }, { key: 'confirm', label: 'Confirm New Password' }].map(f => (
+          <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 16 }}>You are already authenticated. Just set your new password.</p>
+          {[{ key: 'newPw', label: 'New Password (min 6)' }, { key: 'confirm', label: 'Confirm New Password' }].map(f => (
             <div key={f.key} style={{ marginBottom: 12 }}>
               <label style={labelStyle}>{f.label}</label>
               <div style={{ position: 'relative' }}>
@@ -1029,6 +1039,99 @@ function PricingAudit() {
       {applied && (
         <p style={{ fontSize: 13, color: 'var(--success)', fontWeight: 600 }}>✅ ₹5 increase applied! Refresh to see updated prices.</p>
       )}
+    </div>
+  )
+}
+
+// ── Coupon Manager ────────────────────────────────────────────
+function CouponManager() {
+  const { coupons, addCoupon, deleteCoupon, toggleCoupon } = useAdminStore()
+  const [form, setForm] = useState({ code: '', type: 'flat', value: '', maxDiscount: '' })
+  const [showAdd, setShowAdd] = useState(false)
+
+  const handleAdd = () => {
+    if (!form.code.trim() || !form.value) { toast.error('Code and value required'); return }
+    if (form.type === 'percent' && !form.maxDiscount) { toast.error('Max discount amount required for percentage coupons'); return }
+    addCoupon({
+      code: form.code.trim().toUpperCase(),
+      type: form.type,
+      value: +form.value,
+      maxDiscount: form.type === 'percent' ? +form.maxDiscount : null,
+    })
+    setForm({ code: '', type: 'flat', value: '', maxDiscount: '' })
+    setShowAdd(false)
+    toast.success('Coupon created!')
+  }
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+        <h2 style={{ fontSize: 20, fontWeight: 700 }}>Coupons ({coupons.length})</h2>
+        <button onClick={() => setShowAdd(!showAdd)} className="btn btn-primary"><Plus size={14} /> Create Coupon</button>
+      </div>
+
+      {showAdd && (
+        <div style={{ background: '#fff', borderRadius: 12, padding: 24, marginBottom: 20, boxShadow: '0 1px 6px rgba(0,0,0,0.06)', maxWidth: 480 }}>
+          <h3 style={{ fontWeight: 700, marginBottom: 16 }}>New Coupon</h3>
+          <FormField label="Coupon Code *" value={form.code} onChange={v => setForm(p => ({ ...p, code: v.toUpperCase() }))} placeholder="e.g. SAVE100" />
+          <div style={{ marginBottom: 14 }}>
+            <label style={labelStyle}>Discount Type *</label>
+            <div style={{ display: 'flex', gap: 10 }}>
+              {[{ id: 'flat', label: '₹ Fixed Amount' }, { id: 'percent', label: '% Percentage' }].map(t => (
+                <label key={t.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, cursor: 'pointer', padding: '10px 14px', border: `1.5px solid ${form.type === t.id ? 'var(--primary)' : 'var(--border)'}`, borderRadius: 8, flex: 1, background: form.type === t.id ? '#fce7f3' : '#fff', fontSize: 13, fontWeight: form.type === t.id ? 600 : 400, transition: 'all 0.15s', color: form.type === t.id ? 'var(--primary)' : 'inherit' }}>
+                  <input type="radio" name="coupon-type" checked={form.type === t.id} onChange={() => setForm(p => ({ ...p, type: t.id, maxDiscount: '' }))} style={{ display: 'none' }} />
+                  {t.label}
+                </label>
+              ))}
+            </div>
+          </div>
+          <FormField label={form.type === 'flat' ? 'Discount Amount (₹) *' : 'Discount Percentage (%) *'} type="number" value={form.value} onChange={v => setForm(p => ({ ...p, value: v }))} placeholder={form.type === 'flat' ? 'e.g. 50' : 'e.g. 10'} />
+          {form.type === 'percent' && (
+            <FormField label="Max Discount Amount (₹) *" type="number" value={form.maxDiscount} onChange={v => setForm(p => ({ ...p, maxDiscount: v }))} placeholder="e.g. 200 → means 10% off but max ₹200" />
+          )}
+          {form.type === 'percent' && form.value && form.maxDiscount && (
+            <div style={{ padding: '10px 14px', background: '#eff6ff', borderRadius: 8, fontSize: 13, color: '#1d4ed8', marginBottom: 14 }}>
+              💡 Preview: <strong>{form.value}% off</strong>, capped at <strong>₹{form.maxDiscount}</strong>
+            </div>
+          )}
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button onClick={handleAdd} className="btn btn-primary"><Save size={14} /> Create</button>
+            <button onClick={() => setShowAdd(false)} className="btn btn-outline"><X size={14} /> Cancel</button>
+          </div>
+        </div>
+      )}
+
+      <div style={{ background: '#fff', borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 6px rgba(0,0,0,0.06)' }}>
+        {coupons.length === 0 && (
+          <div style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)', fontSize: 14 }}>No coupons yet. Create your first one!</div>
+        )}
+        {coupons.map(c => (
+          <div key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: '1px solid var(--border)', flexWrap: 'wrap', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 14, background: '#f0fdf4', color: '#16a34a', padding: '4px 12px', borderRadius: 6, border: '1.5px dashed #86efac', letterSpacing: 1 }}>{c.code}</span>
+              <div>
+                <p style={{ fontSize: 13, fontWeight: 600 }}>
+                  {c.type === 'flat' ? `₹${c.value} off` : `${c.value}% off${c.maxDiscount ? ` (max ₹${c.maxDiscount})` : ''}`}
+                </p>
+                <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>{c.type === 'flat' ? 'Fixed Amount' : 'Percentage'}</p>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+              <div onClick={() => toggleCoupon(c.id)}
+                style={{ width: 40, height: 22, borderRadius: 11, background: c.active !== false ? 'var(--success)' : '#ccc', position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}>
+                <div style={{ position: 'absolute', width: 16, height: 16, background: '#fff', borderRadius: '50%', top: 3, left: c.active !== false ? 21 : 3, transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
+              </div>
+              <span style={{ fontSize: 12, color: c.active !== false ? 'var(--success)' : 'var(--text-muted)', fontWeight: 500, minWidth: 52 }}>
+                {c.active !== false ? 'Active' : 'Inactive'}
+              </span>
+              <button onClick={() => { deleteCoupon(c.id); toast.success('Coupon deleted') }}
+                style={{ padding: '5px 10px', background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: 6, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
+                <Trash2 size={12} />
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
