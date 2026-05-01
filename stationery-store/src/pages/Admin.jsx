@@ -6,7 +6,6 @@ import {
   TrendingUp, Award, Download, Check, AlertCircle, Lock, QrCode
 } from 'lucide-react'
 import { useAdminStore, useAuthStore } from '../store'
-import ImageCropper from '../components/ui/ImageCropper'
 import toast from 'react-hot-toast'
 
 const NAV_ITEMS = [
@@ -191,7 +190,6 @@ function ProductManager() {
   const [showDeleteAll, setShowDeleteAll] = useState(false)
   const [importErrors, setImportErrors] = useState([])
   const [importSummary, setImportSummary] = useState(null)
-  const [cropSrc, setCropSrc] = useState(null)   // Phase 3: image to crop
   const empty = { name: '', category: '', price: '', originalPrice: '', discount: 0, description: '', image: '', trending: false, topSelling: true, inStock: true }
   const [form, setForm] = useState(empty)
 
@@ -292,10 +290,12 @@ function ProductManager() {
 
   const handleImageUpload = (e) => {
     const file = e.target.files[0]; if (!file) return
-    // Phase 3: open cropper instead of directly setting
+    if (!file.type.startsWith('image/')) { toast.error('Please select a valid image file'); e.target.value = ''; return }
+    if (file.size > 5 * 1024 * 1024) { toast.error('Image must be smaller than 5 MB'); e.target.value = ''; return }
     const reader = new FileReader()
-    reader.onload = (ev) => { setCropSrc(ev.target.result); e.target.value = '' }
+    reader.onload = (ev) => { setForm(p => ({ ...p, image: ev.target.result })); toast.success('Image uploaded!') }
     reader.readAsDataURL(file)
+    e.target.value = ''
   }
 
   if (editing !== null) {
@@ -365,13 +365,6 @@ function ProductManager() {
         </div>
       </div>
 
-      {cropSrc && (
-        <ImageCropper
-          imageSrc={cropSrc}
-          onCropDone={(croppedUrl) => { setForm(p => ({ ...p, image: croppedUrl })); setCropSrc(null); toast.success('Image cropped!') }}
-          onCancel={() => setCropSrc(null)}
-        />
-      )}
       </>
     )
   }
