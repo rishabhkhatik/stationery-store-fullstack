@@ -30,8 +30,29 @@ async function sendMail(subject, html) {
 
 // In-memory reset tokens: token → { expires, type }
 const resetTokens = new Map();
+// Prevent memory leak: prune expired tokens every 10 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [token, record] of resetTokens) {
+    if (now > record.expires) resetTokens.delete(token);
+  }
+}, 10 * 60 * 1000);
 
 const app = express();
+
+// ── Request logger ────────────────────────────────────────────
+app.use((req, _res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+  next();
+});
+
+// ── Unhandled-promise logger ──────────────────────────────────
+process.on('unhandledRejection', (reason) => {
+  console.error('[unhandledRejection]', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('[uncaughtException]', err.message, err.stack);
+});
 
 // Allow requests from any origin in production (Netlify frontend)
 app.use(cors({
@@ -48,7 +69,15 @@ mongoose.connect(process.env.MONGODB_URI)
 const ProductSchema = new mongoose.Schema({
   id: String, name: String, slug: String, category: String,
   price: Number, originalPrice: Number, discount: String,
-  image: String, inStock: { type: Boolean, default: true },
+  // Legacy single-image field kept for backward compatibility
+  image: String,
+  // Multi-image support: array of { url, isMain, public_id }
+  images: [{
+    url: { type: String, required: true },
+    isMain: { type: Boolean, default: false },
+    public_id: { type: String, default: '' },
+  }],
+  inStock: { type: Boolean, default: true },
   trending: { type: Boolean, default: false },
   topSelling: { type: Boolean, default: false },
   description: String, sku: String,
@@ -189,6 +218,24 @@ app.post('/api/products', async (req, res) => {
     const body = req.body;
     if (!body.id) body.id = 'P-' + Date.now();
     if (!body.slug) body.slug = (body.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+    // Normalise images array
+    if (!body.images || body.images.length === 0) {
+      // Migrate legacy single-image field to images array
+      if (body.image) {
+        body.images = [{ url: body.image, isMain: true, public_id: '' }];
+      } else {
+        body.images = [];
+      }
+    } else {
+      // Ensure exactly one isMain=true; default to first if none marked
+      const hasMain = body.images.some(img => img.isMain);
+      if (!hasMain && body.images.length > 0) body.images[0].isMain = true;
+      // Sync legacy image field to the main image url
+      const mainImg = body.images.find(img => img.isMain) || body.images[0];
+      body.image = mainImg ? mainImg.url : body.image;
+    }
+
     const p = new Product(body);
     await p.save();
     res.json(p);
@@ -197,7 +244,17 @@ app.post('/api/products', async (req, res) => {
 
 app.put('/api/products/:id', async (req, res) => {
   try {
-    const updated = await Product.findOneAndUpdate({ id: req.params.id }, { $set: req.body }, { new: true });
+    const body = req.body;
+    // Normalise images on update
+    if (body.images && body.images.length > 0) {
+      const hasMain = body.images.some(img => img.isMain);
+      if (!hasMain) body.images[0].isMain = true;
+      const mainImg = body.images.find(img => img.isMain) || body.images[0];
+      body.image = mainImg ? mainImg.url : body.image;
+    } else if (body.image && (!body.images || body.images.length === 0)) {
+      body.images = [{ url: body.image, isMain: true, public_id: '' }];
+    }
+    const updated = await Product.findOneAndUpdate({ id: req.params.id }, { $set: body }, { new: true });
     if (!updated) return res.status(404).json({ error: "Product not found" });
     res.json(updated);
   } catch (err) { res.status(500).json({ error: "Update error: " + err.message }); }

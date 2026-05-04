@@ -27,7 +27,15 @@ export default function ProductDetail() {
   )
 
   const related = products.filter(p => p.category === product.category && p.id !== product.id).slice(0, 5)
-  const images = product.images?.length ? product.images : [product.image]
+
+  // Normalise images: support new { url, isMain } objects and legacy string arrays
+  const rawImages = product.images?.length
+    ? product.images
+    : (product.image ? [{ url: product.image, isMain: true }] : [])
+  // Sort: main image always first
+  const images = [...rawImages].sort((a, b) => (b.isMain ? 1 : 0) - (a.isMain ? 1 : 0))
+  // Extract URLs for rendering; activeImg index maps into `images` array
+  const getUrl = (img) => (typeof img === 'string' ? img : img?.url || '')
 
   const handleAddToCart = () => {
     if (!isLoggedIn) {
@@ -71,7 +79,7 @@ export default function ProductDetail() {
         {/* Images */}
         <div>
           <div style={{ position: 'relative', borderRadius: 16, overflow: 'hidden', background: '#f9f9f9', aspectRatio: '1', marginBottom: 12 }}>
-            <img src={images[activeImg]} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+            <img src={getUrl(images[activeImg])} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }}
               onError={e => { e.target.onerror = null; e.target.src = 'https://placehold.co/500x500?text=No+Image' }} />
             {images.length > 1 && (
               <>
@@ -87,11 +95,14 @@ export default function ProductDetail() {
             )}
           </div>
           {images.length > 1 && (
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {images.map((img, i) => (
                 <div key={i} onClick={() => setActiveImg(i)}
-                  style={{ width: 70, height: 70, borderRadius: 8, overflow: 'hidden', cursor: 'pointer', border: `2px solid ${activeImg === i ? 'var(--primary)' : 'var(--border)'}` }}>
-                  <img src={img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  style={{ width: 70, height: 70, borderRadius: 8, overflow: 'hidden', cursor: 'pointer', border: `2px solid ${activeImg === i ? 'var(--primary)' : 'var(--border)'}`, position: 'relative' }}>
+                  <img src={getUrl(img)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  {(typeof img === 'object' && img.isMain) && (
+                    <span style={{ position: 'absolute', bottom: 2, left: 2, right: 2, background: 'rgba(232,67,147,0.85)', color: '#fff', fontSize: 8, fontWeight: 700, textAlign: 'center', borderRadius: 3, padding: '1px 0' }}>MAIN</span>
+                  )}
                 </div>
               ))}
             </div>

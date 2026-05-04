@@ -229,17 +229,37 @@ export const useAdminStore = create(
       addProduct: async (product) => {
         const p = {
           ...product,
-          id: 'P-' + Date.now(),
-          slug: product.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
-          images: product.image ? [product.image] : [],
+          id: product.id || 'P-' + Date.now(),
+          slug: product.slug || product.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
+          images: product.images?.length
+            ? product.images
+            : (product.image ? [{ url: product.image, isMain: true, public_id: '' }] : []),
         }
+        // Optimistic insert so the UI feels instant
         set(s => ({ products: [p, ...s.products] }))
-        await api.addProduct(p)   // sync to backend (Bug #3)
+        const saved = await api.addProduct(p)
+        if (saved) {
+          // Replace the optimistic entry with the actual DB document (has _id etc.)
+          set(s => ({
+            products: s.products.map(x => x.id === p.id ? { ...saved, id: saved.id || p.id } : x),
+          }))
+        } else {
+          // API failed — roll back so the ghost is removed immediately
+          set(s => ({ products: s.products.filter(x => x.id !== p.id) }))
+          throw new Error('Failed to save product to database')
+        }
       },
 
       updateProduct: async (id, data) => {
+        // Snapshot for rollback
+        const prev = get().products
         set(s => ({ products: s.products.map(p => p.id === id ? { ...p, ...data } : p) }))
-        await api.updateProduct(id, data)  // sync to backend (Bug #3)
+        const saved = await api.updateProduct(id, data)
+        if (!saved) {
+          // API failed — restore previous state
+          set({ products: prev })
+          throw new Error('Failed to update product')
+        }
       },
 
       deleteProduct: async (id) => {

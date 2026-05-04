@@ -190,11 +190,18 @@ function ProductManager() {
   const [showDeleteAll, setShowDeleteAll] = useState(false)
   const [importErrors, setImportErrors] = useState([])
   const [importSummary, setImportSummary] = useState(null)
-  const empty = { name: '', category: '', price: '', originalPrice: '', discount: 0, description: '', image: '', trending: false, topSelling: true, inStock: true }
+  const empty = { name: '', category: '', price: '', originalPrice: '', discount: 0, description: '', image: '', images: [], trending: false, topSelling: true, inStock: true }
   const [form, setForm] = useState(empty)
 
   const filtered = products.filter(p => p.name.toLowerCase().includes(search.toLowerCase()))
-  const openEdit = (p) => { setForm({ ...p }); setEditing(p.id) }
+  const openEdit = (p) => {
+    // Normalise legacy single-image to images array when opening edit form
+    let images = p.images?.length ? p.images : (p.image ? [{ url: p.image, isMain: true, public_id: '' }] : [])
+    const hasMain = images.some(img => img.isMain)
+    if (!hasMain && images.length > 0) images = images.map((img, i) => ({ ...img, isMain: i === 0 }))
+    setForm({ ...p, images })
+    setEditing(p.id)
+  }
   const openAdd = () => { setForm(empty); setEditing('new') }
 
   // ── Download Template ──────────────────────────────────────
@@ -277,25 +284,97 @@ function ProductManager() {
     toast.success('All products deleted')
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.name || !form.category || !form.price) { toast.error('Name, category and price are required'); return }
     const price = +form.price
     const mrp = form.originalPrice ? +form.originalPrice : null
     const discount = (mrp && mrp > price) ? Math.round(((mrp - price) / mrp) * 100) : 0
-    const data = { ...form, price, originalPrice: mrp, discount, slug: form.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') }
-    if (editing === 'new') { addProduct(data); toast.success('Product added!') }
-    else { updateProduct(editing, data); toast.success('Product updated!') }
-    setEditing(null)
+    // Normalise images: ensure one isMain
+    let images = form.images || []
+    if (images.length > 0 && !images.some(img => img.isMain)) images[0] = { ...images[0], isMain: true }
+    const mainImg = images.find(img => img.isMain) || images[0]
+    const data = {
+      ...form,
+      price,
+      originalPrice: mrp,
+      discount,
+      slug: form.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+      images,
+      image: mainImg?.url || form.image || '',
+    }
+    try {
+      if (editing === 'new') { await addProduct(data); toast.success('Product added!') }
+      else { updateProduct(editing, data); toast.success('Product updated!') }
+      setEditing(null)
+    } catch {
+      toast.error('Failed to save product — please try again')
+    }
   }
 
   const handleImageUpload = (e) => {
-    const file = e.target.files[0]; if (!file) return
-    if (!file.type.startsWith('image/')) { toast.error('Please select a valid image file'); e.target.value = ''; return }
-    if (file.size > 5 * 1024 * 1024) { toast.error('Image must be smaller than 5 MB'); e.target.value = ''; return }
-    const reader = new FileReader()
-    reader.onload = (ev) => { setForm(p => ({ ...p, image: ev.target.result })); toast.success('Image uploaded!') }
-    reader.readAsDataURL(file)
+    const files = Array.from(e.target.files)
+    if (!files.length) return
     e.target.value = ''
+    const invalid = files.find(f => !f.type.startsWith('image/'))
+    if (invalid) { toast.error('Please select valid image files only'); return }
+    const oversize = files.find(f => f.size > 5 * 1024 * 1024)
+    if (oversize) { toast.error('Each image must be smaller than 5 MB'); return }
+
+    let loaded = 0
+    const results = []
+    files.forEach((file, i) => {
+      const reader = new FileReader()
+      reader.onload = (ev) => {
+        results[i] = ev.target.result
+        loaded++
+        if (loaded === files.length) {
+          setForm(p => {
+            const existing = p.images || []
+            const newImgs = results.map(url => ({ url, isMain: false, public_id: '' }))
+            const merged = [...existing, ...newImgs]
+            // If none is main yet, mark the first as main
+            const hasMain = merged.some(img => img.isMain)
+            if (!hasMain && merged.length > 0) merged[0].isMain = true
+            const mainImg = merged.find(img => img.isMain) || merged[0]
+            return { ...p, images: merged, image: mainImg?.url || p.image }
+          })
+          toast.success(`${files.length} image(s) added`)
+        }
+      }
+      reader.readAsDataURL(file)
+    })
+  }
+
+  const handleSetMain = (idx) => {
+    setForm(p => {
+      const imgs = p.images.map((img, i) => ({ ...img, isMain: i === idx }))
+      return { ...p, images: imgs, image: imgs[idx].url }
+    })
+  }
+
+  const handleRemoveImage = (idx) => {
+    setForm(p => {
+      const imgs = p.images.filter((_, i) => i !== idx)
+      // If the removed image was main, promote the first remaining
+      const wasMain = p.images[idx].isMain
+      if (wasMain && imgs.length > 0) imgs[0].isMain = true
+      const mainImg = imgs.find(img => img.isMain) || imgs[0]
+      return { ...p, images: imgs, image: mainImg?.url || '' }
+    })
+  }
+
+  const handleAddImageUrl = () => {
+    const url = prompt('Paste image URL:')
+    if (!url || !url.startsWith('http')) { if (url !== null) toast.error('Enter a valid URL starting with http'); return }
+    setForm(p => {
+      const existing = p.images || []
+      const newImg = { url, isMain: false, public_id: '' }
+      const merged = [...existing, newImg]
+      const hasMain = merged.some(img => img.isMain)
+      if (!hasMain) merged[0].isMain = true
+      const mainImg = merged.find(img => img.isMain)
+      return { ...p, images: merged, image: mainImg?.url || url }
+    })
   }
 
   if (editing !== null) {
@@ -331,18 +410,39 @@ function ProductManager() {
             <textarea value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} rows={3} style={{ ...inputStyle, resize: 'vertical' }} />
           </div>
           <div style={{ marginTop: 16 }}>
-            <label style={labelStyle}>Product Image</label>
-            <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-              {form.image && <img src={form.image} style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)' }} />}
-              <div>
-                <input type="file" accept="image/*" onChange={handleImageUpload} style={{ display: 'none' }} id="prod-img" />
-                <label htmlFor="prod-img" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: 'var(--bg-secondary)', border: '1.5px dashed var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13 }}>
-                  <Upload size={14} /> Upload Image
-                </label>
-                <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>Or paste URL:</p>
-                <input value={form.image} onChange={e => setForm(p => ({ ...p, image: e.target.value }))} placeholder="https://..." style={{ ...inputStyle, marginTop: 4, fontSize: 12 }} />
+            <label style={labelStyle}>Product Images</label>
+            {/* Thumbnail grid */}
+            {(form.images || []).length > 0 && (
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
+                {form.images.map((img, idx) => (
+                  <div key={idx} style={{ position: 'relative', width: 90, height: 90, borderRadius: 10, overflow: 'hidden', border: img.isMain ? '2.5px solid var(--primary)' : '1.5px solid var(--border)', flexShrink: 0 }}>
+                    <img src={img.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      onError={e => { e.target.onerror = null; e.target.src = 'https://placehold.co/90x90?text=??' }} />
+                    {/* Remove button */}
+                    <button onClick={() => handleRemoveImage(idx)}
+                      style={{ position: 'absolute', top: 3, right: 3, background: 'rgba(220,38,38,0.85)', color: '#fff', border: 'none', borderRadius: '50%', width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 12, lineHeight: 1 }}>×</button>
+                    {/* Main badge / set-as-main button */}
+                    {img.isMain
+                      ? <span style={{ position: 'absolute', bottom: 3, left: 3, right: 3, background: 'var(--primary)', color: '#fff', fontSize: 9, fontWeight: 700, textAlign: 'center', borderRadius: 4, padding: '1px 0' }}>MAIN</span>
+                      : <button onClick={() => handleSetMain(idx)}
+                          style={{ position: 'absolute', bottom: 3, left: 3, right: 3, background: 'rgba(0,0,0,0.55)', color: '#fff', border: 'none', borderRadius: 4, fontSize: 9, fontWeight: 600, cursor: 'pointer', padding: '2px 0' }}>Set Main</button>
+                    }
+                  </div>
+                ))}
               </div>
+            )}
+            {/* Upload / URL buttons */}
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+              <input type="file" accept="image/*" multiple onChange={handleImageUpload} style={{ display: 'none' }} id="prod-img" />
+              <label htmlFor="prod-img" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: 'var(--bg-secondary)', border: '1.5px dashed var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13 }}>
+                <Upload size={14} /> Upload Images
+              </label>
+              <button type="button" onClick={handleAddImageUrl}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: '#eff6ff', color: '#2563eb', border: '1.5px solid #bfdbfe', borderRadius: 8, cursor: 'pointer', fontSize: 13 }}>
+                + Paste URL
+              </button>
             </div>
+            <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>Upload multiple images. Click "Set Main" to choose the hero image. Max 5 MB each.</p>
           </div>
           <div style={{ display: 'flex', gap: 20, marginTop: 16, flexWrap: 'wrap' }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, cursor: 'pointer' }}>
