@@ -489,8 +489,8 @@ function ProductManager() {
 
   return (
     <div>
-      {/* ── Confirmation Modal ── */}
-      {showDeleteAll && (
+      {/* ── Confirmation Modal (Delete All — disabled) ── */}
+      {/* showDeleteAll && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <div style={{ background: '#fff', borderRadius: 16, padding: 28, maxWidth: 420, width: '100%', textAlign: 'center' }}>
             <div style={{ fontSize: 48, marginBottom: 12 }}>⚠️</div>
@@ -506,7 +506,7 @@ function ProductManager() {
             </div>
           </div>
         </div>
-      )}
+      ) */}
 
       {/* ── Import Summary ── */}
       {importSummary && (
@@ -542,13 +542,13 @@ function ProductManager() {
             <Upload size={13} /> Upload Excel
             <input type="file" accept=".xlsx,.xls" onChange={handleExcelUpload} style={{ display: 'none' }} />
           </label>
-          {/* Delete All */}
-          {products.length > 0 && (
+          {/* Delete All — disabled to prevent accidental wipe */}
+          {/* products.length > 0 && (
             <button onClick={() => setShowDeleteAll(true)}
               style={{ padding: '8px 12px', background: '#fee2e2', color: '#dc2626', border: '1.5px solid #fca5a5', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}>
               <Trash2 size={13} /> Delete All
             </button>
-          )}
+          ) */}
           <button onClick={openAdd} className="btn btn-primary"><Plus size={14} /> Add Product</button>
         </div>
       </div>
