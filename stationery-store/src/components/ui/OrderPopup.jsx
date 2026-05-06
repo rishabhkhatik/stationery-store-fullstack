@@ -9,7 +9,8 @@ import toast from 'react-hot-toast'
   Flow: Fill details → Show QR → Upload screenshot → Thank you
 */
 export default function OrderPopup({ product, quantity = 1, onClose }) {
-  const { siteConfig, addOrder } = useAdminStore()
+  const siteConfig = useAdminStore(state => state.siteConfig)
+  const addOrder = useAdminStore(state => state.addOrder)
   const [step, setStep] = useState('form')   // form | qr | done
   const [form, setForm] = useState({ name: '', phone: '', address: '' })
   const [qty, setQty] = useState(quantity)

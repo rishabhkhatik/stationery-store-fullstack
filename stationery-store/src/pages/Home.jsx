@@ -7,7 +7,11 @@ import ProductCard from '../components/ui/ProductCard'
 import { REVIEWS } from '../data/products'
 
 export default function Home() {
-  const { products, categories, banners, siteConfig } = useAdminStore()
+  // Selectors prevent Home from re-rendering on admin-only state changes (orders, carts)
+  const products = useAdminStore(state => state.products)
+  const categories = useAdminStore(state => state.categories)
+  const banners = useAdminStore(state => state.banners)
+  const siteConfig = useAdminStore(state => state.siteConfig)
   const [priceRange, setPriceRange] = useState([0, 1000])
   const bannerRef = useRef()
 

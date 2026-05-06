@@ -60,7 +60,7 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type'],
 }));
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '50mb' }));
 
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => console.log("✅ RRS Database Connected!"))

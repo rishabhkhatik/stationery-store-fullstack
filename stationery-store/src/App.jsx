@@ -41,7 +41,10 @@ function Layout({ children, noFooter = false }) {
 }
 
 export default function App() {
-  const { syncFromBackend } = useAdminStore()
+  // Use a selector so App only re-renders when syncFromBackend itself changes
+  // (it never does — Zustand actions are stable), preventing cascade re-renders
+  // every time syncFromBackend resolves and updates products/orders/carts.
+  const syncFromBackend = useAdminStore(state => state.syncFromBackend)
 
   useEffect(() => {
     syncFromBackend()

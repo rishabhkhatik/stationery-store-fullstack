@@ -7,9 +7,17 @@ import toast from 'react-hot-toast'
 
 export default function Header() {
   const navigate = useNavigate()
-  const { items } = useCartStore()
-  const { user, isLoggedIn, logout } = useAuthStore()
-  const { products, siteConfig } = useAdminStore()
+  const items = useCartStore(state => state.items)
+  const user = useAuthStore(state => state.user)
+  const isLoggedIn = useAuthStore(state => state.isLoggedIn)
+  const logout = useAuthStore(state => state.logout)
+  // Selectors keep Header isolated — re-renders only when products or storeName/logo change,
+  // not when orders/carts/config update on the admin side.
+  const products = useAdminStore(state => state.products)
+  const storeName = useAdminStore(state => state.siteConfig?.storeName)
+  const logo = useAdminStore(state => state.siteConfig?.logo)
+  const announcement = useAdminStore(state => state.siteConfig?.announcement)
+  const siteConfig = { storeName, logo, announcement }
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState([])
   const [showSearch, setShowSearch] = useState(false)

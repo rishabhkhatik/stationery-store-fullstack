@@ -19,8 +19,12 @@ function loadRecaptcha() {
 
 export default function Cart() {
   const { items, removeItem, updateQty, clearCart, applyPromo, promoCode, getTotal } = useCartStore()
-  const { user } = useAuthStore()
-  const { addOrder, siteConfig, coupons } = useAdminStore()
+  const user = useAuthStore(state => state.user)
+  // Selectors: Cart only needs three slices from admin store; using selectors prevents
+  // re-renders caused by unrelated admin state changes (products, activeCarts, etc.)
+  const addOrder = useAdminStore(state => state.addOrder)
+  const siteConfig = useAdminStore(state => state.siteConfig)
+  const coupons = useAdminStore(state => state.coupons)
   const navigate = useNavigate()
   const [promo, setPromo] = useState('')
   const [step, setStep] = useState('cart')

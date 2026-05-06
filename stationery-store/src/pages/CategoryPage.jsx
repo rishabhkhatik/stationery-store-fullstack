@@ -6,7 +6,8 @@ import ProductCard from '../components/ui/ProductCard'
 
 export default function CategoryPage() {
   const { slug } = useParams()
-  const { products, categories } = useAdminStore()
+  const products = useAdminStore(state => state.products)
+  const categories = useAdminStore(state => state.categories)
   const category = categories.find(c => c.slug === slug)
   const [priceRange, setPriceRange] = useState([0, 1000])
   const [sort, setSort] = useState('newest')

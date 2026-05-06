@@ -8,7 +8,7 @@ import toast from 'react-hot-toast'
 
 export default function ProductDetail() {
   const { slug } = useParams()
-  const { products } = useAdminStore()
+  const products = useAdminStore(state => state.products)
   const { addItem } = useCartStore()
   const { isLoggedIn } = useAuthStore()
   const navigate = useNavigate()

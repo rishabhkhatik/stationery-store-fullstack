@@ -5,7 +5,8 @@ import { useAdminStore } from '../store'
 import ProductCard from '../components/ui/ProductCard'
 
 export default function Categories() {
-  const { products, categories } = useAdminStore()
+  const products = useAdminStore(state => state.products)
+  const categories = useAdminStore(state => state.categories)
   const [searchParams, setSearchParams] = useSearchParams()
   const [selectedCat, setSelectedCat] = useState(searchParams.get('cat') || 'all')
   const [priceRange, setPriceRange] = useState([0, 1000])

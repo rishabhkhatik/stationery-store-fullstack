@@ -4,7 +4,8 @@ import { Instagram, Facebook, Youtube, MessageCircle, Mail, Phone, MapPin } from
 import { useAdminStore } from '../../store'
 
 export default function Footer() {
-  const { siteConfig, categories } = useAdminStore()
+  const siteConfig = useAdminStore(state => state.siteConfig)
+  const categories = useAdminStore(state => state.categories)
 
   return (
     <footer style={{ background: '#1a1a1a', color: '#ccc', marginTop: 60 }}>

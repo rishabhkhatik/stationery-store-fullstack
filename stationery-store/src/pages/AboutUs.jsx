@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { useAdminStore } from '../store'
 
 export default function AboutUs() {
-  const { siteConfig } = useAdminStore()
+  const siteConfig = useAdminStore(state => state.siteConfig)
   const [showAll, setShowAll] = useState(false)
   const team = siteConfig.teamMembers || []
   const visibleTeam = showAll ? team : team.slice(0, 4)

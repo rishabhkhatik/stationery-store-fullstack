@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
+import imageCompression from 'browser-image-compression'
 import {
   LayoutDashboard, Package, Tag, Image, ShoppingBag, Users, Settings,
   Plus, Trash2, Edit3, Save, X, Eye, EyeOff, Upload, LogOut, Menu,
@@ -23,18 +24,25 @@ const NAV_ITEMS = [
 
 export default function AdminPanel() {
   const { user, isLoggedIn, logout } = useAuthStore()
-  const { syncFromBackend } = useAdminStore()
+  const syncFromBackend = useAdminStore(state => state.syncFromBackend)
   const navigate = useNavigate()
   const [tab, setTab] = useState('dashboard')
   // Bug #4: Mobile sidebar state
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [syncing, setSyncing] = useState(false)
 
-  // Real-time sync: fetch fresh data from backend on mount and every 15s
+  // Sync once on mount — no auto-polling to prevent request loops and
+  // massive Base64-image payloads accumulating over long admin sessions.
   useEffect(() => {
     syncFromBackend()
-    const interval = setInterval(syncFromBackend, 15000)
-    return () => clearInterval(interval)
   }, [])
+
+  const handleSync = async () => {
+    setSyncing(true)
+    await syncFromBackend()
+    setSyncing(false)
+    toast.success('Data refreshed')
+  }
 
   if (!isLoggedIn || user?.role !== 'admin') {
     return (
@@ -87,6 +95,11 @@ export default function AdminPanel() {
           ))}
         </nav>
         <div style={{ padding: '12px 8px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+          <button onClick={handleSync} disabled={syncing}
+            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 8, fontSize: 14, color: syncing ? '#666' : '#8ab4f8', background: 'transparent', border: 'none', cursor: syncing ? 'default' : 'pointer', marginBottom: 4 }}>
+            <Download size={16} style={{ animation: syncing ? 'spin 1s linear infinite' : 'none' }} />
+            {syncing ? 'Refreshing…' : 'Refresh Data'}
+          </button>
           <button onClick={handleLogout}
             style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 8, fontSize: 14, color: '#ff6b6b', background: 'transparent', border: 'none', cursor: 'pointer' }}>
             <LogOut size={16} /> Logout
@@ -124,6 +137,7 @@ export default function AdminPanel() {
 
       {/* Bug #4: Admin responsive styles */}
       <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
         @media (max-width: 768px) {
           .admin-sidebar {
             position: fixed !important;
@@ -304,10 +318,10 @@ function ProductManager() {
     }
     try {
       if (editing === 'new') { await addProduct(data); toast.success('Product added!') }
-      else { updateProduct(editing, data); toast.success('Product updated!') }
+      else { await updateProduct(editing, data); toast.success('Product updated!') }
       setEditing(null)
-    } catch {
-      toast.error('Failed to save product — please try again')
+    } catch (err) {
+      toast.error('Failed to save product — ' + (err?.message || 'please try again'))
     }
   }
 
@@ -317,32 +331,36 @@ function ProductManager() {
     e.target.value = ''
     const invalid = files.find(f => !f.type.startsWith('image/'))
     if (invalid) { toast.error('Please select valid image files only'); return }
-    const oversize = files.find(f => f.size > 5 * 1024 * 1024)
-    if (oversize) { toast.error('Each image must be smaller than 5 MB'); return }
+    // Raw cap: 20 MB each — compression will bring them well under 2 MB
+    const oversize = files.find(f => f.size > 20 * 1024 * 1024)
+    if (oversize) { toast.error('Each image must be smaller than 20 MB'); return }
 
-    let loaded = 0
-    const results = []
-    files.forEach((file, i) => {
-      const reader = new FileReader()
-      reader.onload = (ev) => {
-        results[i] = ev.target.result
-        loaded++
-        if (loaded === files.length) {
-          setForm(p => {
-            const existing = p.images || []
-            const newImgs = results.map(url => ({ url, isMain: false, public_id: '' }))
-            const merged = [...existing, ...newImgs]
-            // If none is main yet, mark the first as main
-            const hasMain = merged.some(img => img.isMain)
-            if (!hasMain && merged.length > 0) merged[0].isMain = true
-            const mainImg = merged.find(img => img.isMain) || merged[0]
-            return { ...p, images: merged, image: mainImg?.url || p.image }
-          })
-          toast.success(`${files.length} image(s) added`)
-        }
-      }
-      reader.readAsDataURL(file)
-    })
+    const compressionOptions = {
+      maxSizeMB: 1.5,          // target ≤ 1.5 MB per image (Base64 is ~4/3 of this ≈ 2 MB)
+      maxWidthOrHeight: 900,   // never larger than 900 px on the longest side
+      useWebWorker: true,      // off the main thread so UI stays responsive
+      initialQuality: 0.85,    // high visual quality
+    }
+
+    Promise.all(
+      files.map(file =>
+        imageCompression(file, compressionOptions)
+          .then(compressed => imageCompression.getDataUrlFromFile(compressed))
+      )
+    )
+      .then(results => {
+        setForm(p => {
+          const existing = p.images || []
+          const newImgs = results.map(url => ({ url, isMain: false, public_id: '' }))
+          const merged = [...existing, ...newImgs]
+          const hasMain = merged.some(img => img.isMain)
+          if (!hasMain && merged.length > 0) merged[0].isMain = true
+          const mainImg = merged.find(img => img.isMain) || merged[0]
+          return { ...p, images: merged, image: mainImg?.url || p.image }
+        })
+        toast.success(`${files.length} image(s) compressed & added`)
+      })
+      .catch(err => toast.error('Image compression failed: ' + (err?.message || 'try a smaller file')))
   }
 
   const handleSetMain = (idx) => {

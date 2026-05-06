@@ -6,7 +6,7 @@ import ProductCard from '../components/ui/ProductCard'
 export default function SearchResults() {
   const [searchParams] = useSearchParams()
   const q = searchParams.get('q') || ''
-  const { products } = useAdminStore()
+  const products = useAdminStore(state => state.products)
   const [priceRange, setPriceRange] = useState([0, 1000])
   const [sort, setSort] = useState('newest')
 

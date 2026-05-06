@@ -5,7 +5,7 @@ import { useAdminStore, useAuthStore } from '../store'
 import toast from 'react-hot-toast'
 
 export function ContactPage() {
-  const { siteConfig } = useAdminStore()
+  const siteConfig = useAdminStore(state => state.siteConfig)
   const [form, setForm] = useState({ name: '', email: '', subject: '', message: '' })
   const [sent, setSent] = useState(false)
 
@@ -96,8 +96,8 @@ export function ContactPage() {
 }
 
 export function OrdersPage() {
-  const { user } = useAuthStore()
-  const { orders } = useAdminStore()
+  const user = useAuthStore(state => state.user)
+  const orders = useAdminStore(state => state.orders)
   const myOrders = orders.filter(o => o.customer?.userId === user?.id || o.customer?.email === user?.email)
   const statusColors = { Pending: '#f59e0b', Packed: '#3b82f6', Shipped: '#8b5cf6', Delivered: '#22c55e', Cancelled: '#ef4444' }
 
@@ -154,18 +154,18 @@ function PolicyPage({ title, content }) {
 }
 
 export function TermsPage() {
-  const { siteConfig } = useAdminStore()
+  const siteConfig = useAdminStore(state => state.siteConfig)
   return <PolicyPage title="Terms & Conditions" content={siteConfig.termsContent || 'By using our website, you agree to these terms and conditions. All products are subject to availability. Prices may change without notice. Orders once placed cannot be modified. We reserve the right to cancel any order.'} />
 }
 export function PrivacyPage() {
-  const { siteConfig } = useAdminStore()
+  const siteConfig = useAdminStore(state => state.siteConfig)
   return <PolicyPage title="Privacy Policy" content={siteConfig.privacyContent || 'We collect your name, email, phone and address only to process your orders. We do not share your data with third parties. Your information is stored securely.'} />
 }
 export function RefundPage() {
-  const { siteConfig } = useAdminStore()
+  const siteConfig = useAdminStore(state => state.siteConfig)
   return <PolicyPage title="Return & Refund Policy" content={siteConfig.refundContent || 'Returns accepted within 7 days of delivery for damaged or incorrect items. Contact us with order ID and photos. Refunds processed within 5-7 business days.'} />
 }
 export function ShippingPage() {
-  const { siteConfig } = useAdminStore()
+  const siteConfig = useAdminStore(state => state.siteConfig)
   return <PolicyPage title="Shipping Policy" content={siteConfig.shippingContent || 'We ship across India. Standard delivery in 5-7 business days. Free shipping on all orders. Express delivery available in select cities.'} />
 }
