@@ -75,10 +75,16 @@ export const useCartStore = create(
       addItem: (product, qty = 1) => {
         const items = get().items
         const existing = items.find(i => i.id === product.id)
+        // Strip Base64 image data before storing in cart to prevent localStorage quota errors.
+        // The product image is only needed for display in ProductCard/ProductDetail which
+        // reads directly from the products array, not from cart items.
+        const cartItem = { ...product, qty }
+        if (cartItem.image?.startsWith('data:')) cartItem.image = ''
+        if (cartItem.images) cartItem.images = cartItem.images.map(img => img.url?.startsWith('data:') ? { ...img, url: '' } : img)
         if (existing) {
           set({ items: items.map(i => i.id === product.id ? { ...i, qty: i.qty + qty } : i) })
         } else {
-          set({ items: [...items, { ...product, qty }] })
+          set({ items: [...items, cartItem] })
         }
         // Sync cart to backend if a registered user is active
         const authState = JSON.parse(localStorage.getItem('auth-store') || '{}')
@@ -329,6 +335,18 @@ export const useAdminStore = create(
         await api.updateOrderStatus(id, status)  // sync to backend
       },
     }),
-    { name: 'admin-store' }
+    {
+      name: 'admin-store',
+      // Exclude large/backend-sourced arrays from localStorage to prevent quota errors.
+      // products and orders may contain Base64 image strings (several MB each).
+      // They are always re-fetched from the backend on mount via syncFromBackend().
+      partialize: (state) => ({
+        categories: state.categories,
+        banners: state.banners,
+        coupons: state.coupons,
+        siteConfig: state.siteConfig,
+        // products, orders, activeCarts are intentionally NOT persisted
+      }),
+    }
   )
 )

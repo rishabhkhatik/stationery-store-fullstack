@@ -47,6 +47,19 @@ export default function App() {
   const syncFromBackend = useAdminStore(state => state.syncFromBackend)
 
   useEffect(() => {
+    // One-time migration: clear the old oversized admin-store from localStorage.
+    // Previous versions persisted the full products/orders arrays (with Base64 images)
+    // which could exceed the 5 MB quota. The new partialize config excludes them,
+    // but existing browsers still have the old bloated key — clear it once.
+    try {
+      const raw = localStorage.getItem('admin-store')
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        if (parsed?.state?.products?.length > 0 || parsed?.state?.orders?.length > 0) {
+          localStorage.removeItem('admin-store')
+        }
+      }
+    } catch { /* ignore */ }
     syncFromBackend()
   }, [])
 
